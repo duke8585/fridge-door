@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.DS_Store
+__pycache__/
+
+# Account-specific config and private notes; wrangler.example.jsonc is the template.
+wrangler.jsonc
+NOTES.md
+TODO.md
+
+# Import data (personal recipes, exports, model output); only the tooling and fixtures are tracked.
+import/src/
+import/llm/
+import/out/
+import/covers/
+import/batches/
+import/fixes/
+import/skip.txt
+import/verify_report.md

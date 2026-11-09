@@ -1,0 +1,80 @@
+// Copy to wrangler.jsonc (gitignored) and replace every <...> value. docs/DEPLOY.md walks through it.
+// `npm run dev` copies this file when there is no wrangler.jsonc; local dev works with the
+// placeholders as they are.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Top level = production on a custom domain. `env.stg` = staging on workers.dev.
+  // vars and bindings are not inherited by envs, so env.stg repeats them.
+  "name": "fridge-door",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  // nodejs_compat: the MCP handler (agents/mcp/server) uses node:async_hooks.
+  // global_fetch_strictly_public: fetch() reaches only the public internet (set_cover_from_url
+  // downloads model-chosen URLs).
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Prod is served only on the custom domain below. Without a domain, set this to true and drop
+  // "routes"; the app then lives on https://fridge-door.<your-subdomain>.workers.dev.
+  "workers_dev": false,
+  "routes": [{ "pattern": "<recipes.example.com>", "custom_domain": true }],
+  "observability": { "enabled": true },
+  "assets": {
+    "binding": "ASSETS",
+    // SPA: unknown paths fall back to index.html.
+    // run_worker_first: true sends EVERY request (assets included) through the Worker, so the
+    // login check also covers the JS/CSS/shell. The Worker forwards non-/api requests to
+    // env.ASSETS, which still applies the SPA fallback.
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  // Login allowlists (public, not secrets). The app has exactly two users, "max" and "partner"
+  // (USERS in shared/constants.ts). Keys: Google email (normalized, see worker/auth.ts) and GitHub
+  // numeric user id. Empty or invalid JSON lets nobody in with that provider.
+  "vars": {
+    "ALLOWED_GOOGLE": "{\"alice@example.com\":\"max\",\"bob@example.com\":\"partner\"}",
+    "ALLOWED_GITHUB": "{\"1234567\":\"max\"}",
+    // Public URL of the MCP endpoint, the URL pasted into claude.ai. OAuth tokens are bound to it.
+    "MCP_RESOURCE": "https://<recipes.example.com>/mcp"
+  },
+  // MCP OAuth clients, grants and tokens (workers-oauth-provider).
+  // `npx wrangler kv namespace create fridge-door-oauth` prints the id.
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "<kv namespace id>" }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      // `npx wrangler d1 create fridge-door` prints the database_id.
+      "database_name": "fridge-door",
+      "database_id": "<d1 database id>",
+      "migrations_dir": "migrations"
+    }
+  ],
+  // `npx wrangler r2 bucket create fridge-door-covers`
+  "r2_buckets": [{ "binding": "COVERS", "bucket_name": "fridge-door-covers" }],
+  // Secrets (per env, not in this file): SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+  // GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, IMPORT_TOKEN, and optionally ANTHROPIC_API_KEY.
+  // See docs/DEPLOY.md.
+  "env": {
+    "stg": {
+      // Served on https://fridge-door-stg.<your-subdomain>.workers.dev
+      "name": "fridge-door-stg",
+      "workers_dev": true,
+      // Only the registered OAuth origin; version preview URLs could not log in anyway.
+      "preview_urls": false,
+      "routes": [],
+      "vars": {
+        "ALLOWED_GOOGLE": "{\"alice@example.com\":\"max\",\"bob@example.com\":\"partner\"}",
+        "ALLOWED_GITHUB": "{\"1234567\":\"max\"}",
+        "MCP_RESOURCE": "https://fridge-door-stg.<your-subdomain>.workers.dev/mcp"
+      },
+      "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "<stg kv namespace id>" }],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "fridge-door-stg",
+          "database_id": "<stg d1 database id>",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [{ "binding": "COVERS", "bucket_name": "fridge-door-stg-covers" }]
+    }
+  }
+}

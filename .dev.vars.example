@@ -1,0 +1,12 @@
+# Local dev only (vite dev / preview read .dev.vars; `wrangler deploy` never uploads it).
+# predev copies this file to .dev.vars when there is none.
+# OAuth cannot redirect back to localhost, so DEV_LOGIN adds "log in as max/partner" buttons to
+# /login. It also requires a localhost/127.0.0.1 host, so it cannot work on a deployed Worker.
+SESSION_SECRET=local-dev-only-not-a-secret
+DEV_LOGIN=true
+# Optional: lets `npm run load-import` against localhost use RECIPES_IMPORT_TOKEN=local-import-token
+IMPORT_TOKEN=local-import-token
+# MCP OAuth tokens are bound to this URL (prod/stg set it in wrangler.jsonc).
+MCP_RESOURCE=http://localhost:8788/mcp
+# Optional: link import with Claude. Without it, imports run without AI.
+# ANTHROPIC_API_KEY=

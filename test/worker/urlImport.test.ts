@@ -4,7 +4,7 @@ import type { DatabaseSync } from "node:sqlite";
 import Anthropic from "@anthropic-ai/sdk";
 import worker from "../../worker/index";
 import * as repo from "../../worker/repo";
-import { classifyOutage } from "../../worker/urlImport";
+import { classifyOutage } from "../../worker/ai";
 import type { RecipeInput, User } from "../../shared/schema";
 import type { UrlImportDraft, UrlImportStatus } from "../../shared/urlImport";
 import { TEST_ORIGIN, TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedInit, type StoredObject } from "./fakes";

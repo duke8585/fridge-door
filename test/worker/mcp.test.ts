@@ -244,10 +244,13 @@ describe("MCP tools", () => {
       "create_recipe",
       "get_recipe",
       "get_style_guide",
+      "list_ingredients",
       "list_tags",
+      "lookup_ingredients",
       "rate",
       "search_recipes",
       "set_cover_from_url",
+      "set_ingredient",
       "set_tags",
       "update_recipe",
     ]);
@@ -448,5 +451,44 @@ describe("set_cover_from_url", () => {
     expect((await tool(token, "set_cover_from_url", { id, image_url: "https://img.example/loop" })).text).toContain("More than 3 redirects");
 
     expect(objects.size).toBe(0);
+  });
+});
+
+describe("MCP ingredient catalogue", () => {
+  it("create_recipe and update_recipe store bases; search_recipes finds a recipe by base", async () => {
+    const token = await connect("max");
+    const created = await tool(token, "create_recipe", { recipe: dal({ sections: [{ ingredients: [{ item: "red apples", qty: 2, unit: "piece" }, { item: "salt", note: "to taste" }] }] }) });
+    const id = created.data.id as string;
+    expect((await repo.getRecipe(env.DB as D1Database, id))!.sections[0]!.ingredients.map((i) => i.base)).toEqual(["apple", "salt"]);
+    expect((await tool(token, "search_recipes", { query: "apples" })).data.results.map((r: { id: string }) => r.id)).toEqual([id]);
+    const updated = await tool(token, "update_recipe", { id, recipe: dal({ sections: [{ ingredients: [{ item: "pears", qty: 2, unit: "piece" }] }] }), expected_updated_at: created.data.updated_at });
+    expect(updated.isError).toBeFalsy();
+    expect((await repo.getRecipe(env.DB as D1Database, id))!.sections[0]!.ingredients.map((i) => i.base)).toEqual(["pear"]);
+  });
+
+  it("lookup_ingredients explains a resolution; set_ingredient teaches the catalogue and re-resolves recipes", async () => {
+    const token = await connect("partner");
+    const created = await tool(token, "create_recipe", { recipe: dal({ sections: [{ ingredients: [{ item: "Granny Smith apples", qty: 2, unit: "piece" }] }] }) });
+    const look = await tool(token, "lookup_ingredients", { items: ["eggplants", "Granny Smith apples"] });
+    expect(look.data.results).toEqual([
+      { item: "eggplants", base: "aubergine", aisle: "produce", how: "rule", origin: "seed" },
+      { item: "Granny Smith apples", base: "granny smith apple", aisle: "other", how: "unknown", origin: null },
+    ]);
+    const set = await tool(token, "set_ingredient", { item: "Granny Smith apples", base: "apple" });
+    expect(set.data).toMatchObject({ base: "apple", aisle: "produce", origin: "seed", recipes_updated: 1 });
+    expect((await repo.getRecipe(env.DB as D1Database, created.data.id))!.sections[0]!.ingredients[0]!.base).toBe("apple");
+    expect((await tool(token, "list_ingredients", { origin: "user" })).data.total).toBe(0);
+    await tool(token, "set_ingredient", { item: "yuzu", base: "yuzu", aisle: "produce" });
+    expect((await tool(token, "list_ingredients", { origin: "user" })).data.bases).toEqual([{ base: "yuzu", aisle: "produce", origin: "user", aliases: [] }]);
+  });
+
+  it("add_to_shopping_list rows carry base and aisle", async () => {
+    const token = await connect("max");
+    const created = await tool(token, "create_recipe", { recipe: dal() });
+    await tool(token, "add_to_shopping_list", { id: created.data.id });
+    expect(sqlite.prepare("SELECT item, base, aisle FROM shopping_items ORDER BY item").all()).toEqual([
+      { item: "red lentils", base: "red lentil", aisle: "grains" },
+      { item: "salt", base: "salt", aisle: "spices" },
+    ]);
   });
 });

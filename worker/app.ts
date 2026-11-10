@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
+import { AISLE_IDS, buildCatalogue, storedName, type CatalogueData } from "../shared/catalogue";
 import { COVER_KEY, COVER_TYPES, MAX_COVER_BYTES, contentHash, parseFocusParam } from "../shared/cover";
 import {
   CommentInputSchema,
@@ -17,13 +18,15 @@ import {
   type ImportResult,
   type RecipeDetail,
   type ShoppingItem,
+  type ShoppingSyncResponse,
   type User,
   type ValidationErrorBody,
 } from "../shared/schema";
-import { diffRecipes, summarizeDiff, type Revision, type RevisionListItem } from "../shared/revisions";
+import { diffRecipes, restoredContent, summarizeDiff, type Revision, type RevisionListItem } from "../shared/revisions";
 import { searchRecipes } from "../shared/search";
 import { applyTagDelta } from "../shared/tags";
 import { authRoutes, PUBLIC_PATHS, requestUser, unauthenticated, type AuthEnv } from "./auth";
+import { backfillBases, placeShopping, resolveRecipe } from "./catalogue";
 import { storeCover } from "./covers";
 import * as repo from "./repo";
 import { importFromUrl, importStatus, saveImported } from "./urlImport";
@@ -78,7 +81,7 @@ app.get("/recipes", async (c) => {
   const q = c.req.query("q");
   const tag = c.req.query("tag")?.toLowerCase();
   let list = await repo.listRecipes(c.env.DB);
-  if (q) list = searchRecipes(list, q);
+  if (q) list = searchRecipes(list, q, buildCatalogue(await repo.loadCatalogue(c.env.DB)));
   if (tag) list = list.filter((r) => r.tags.includes(tag));
   return c.json(list);
 });
@@ -95,7 +98,7 @@ app.post("/recipes", async (c) => {
   const body = await parseBody(c, RecipeInputSchema);
   if (!body.ok) return body.res;
   const id = await repo.freshRecipeId(c.env.DB, body.data.title);
-  await repo.upsertRecipe(c.env.DB, id, body.data, change(c, "editor"));
+  await repo.upsertRecipe(c.env.DB, id, await resolveRecipe(c.env, body.data), change(c, "editor"));
   return c.json(await repo.getRecipe(c.env.DB, id), 201);
 });
 
@@ -104,7 +107,7 @@ app.put("/recipes/:id", async (c) => {
   if (!(await repo.recipeExists(c.env.DB, id))) return c.json({ error: "not_found" }, 404);
   const body = await parseBody(c, RecipeInputSchema);
   if (!body.ok) return body.res;
-  await repo.upsertRecipe(c.env.DB, id, body.data, change(c, "editor"));
+  await repo.upsertRecipe(c.env.DB, id, await resolveRecipe(c.env, body.data), change(c, "editor"));
   return c.json(await repo.getRecipe(c.env.DB, id));
 });
 
@@ -162,11 +165,13 @@ app.get("/recipes/:id/revisions/:rev", async (c) => {
   return rev ? c.json<Revision>(rev) : c.json({ error: "not_found" }, 404);
 });
 
-/** Idempotent: restoring the version that is already current records nothing. */
+/** Writes the revision's content and tags as current (see `restoredContent`). Idempotent: restoring the version that is already current records nothing. */
 app.post("/recipes/:id/revisions/:rev/restore", async (c) => {
   const id = c.req.param("id");
   const n = revParam(c);
-  if (n === null || !(await repo.restoreRevision(c.env.DB, id, n, change(c, "restore")))) return c.json({ error: "not_found" }, 404);
+  const revision = n === null ? null : await repo.getRevision(c.env.DB, id, n);
+  if (!revision) return c.json({ error: "not_found" }, 404);
+  await repo.upsertRecipe(c.env.DB, id, await resolveRecipe(c.env, restoredContent(revision.snapshot)), change(c, "restore"));
   return c.json(await repo.getRecipe(c.env.DB, id));
 });
 
@@ -248,7 +253,7 @@ app.put("/import/:source_ref", async (c) => {
       return { id, user: cm.user, body_md: cm.body_md, created_at };
     }),
   );
-  await repo.applyImport(c.env.DB, id, rec, comments, hash, change(c, "import"));
+  await repo.applyImport(c.env.DB, id, { ...rec, recipe: await resolveRecipe(c.env, rec.recipe) }, comments, hash, change(c, "import"));
   return c.json<ImportResult>(
     { id, status: existing ? "updated" : "created", cover_key: existing?.cover_key ?? null },
     existing ? 200 : 201,
@@ -299,12 +304,18 @@ app.get("/shopping", async (c) => {
   return c.json(await repo.shoppingSince(c.env.DB, since));
 });
 
-/** The endpoint the client outbox uses: push a batch, get back everything after `since`. */
+/**
+ * The endpoint the client outbox uses: push a batch (and a reordered aisle list), get back
+ * everything after `since`, the aisle order, and the catalogue version to refetch it when it moved.
+ */
 app.post("/shopping/sync", async (c) => {
   const body = await parseBody(c, ShoppingSyncRequestSchema);
   if (!body.ok) return body.res;
-  await repo.applyShopping(c.env.DB, body.data.items.map(normalize));
-  return c.json(await repo.shoppingSince(c.env.DB, body.data.since));
+  const { items, since, aisle_order } = body.data;
+  await repo.applyShopping(c.env.DB, await placeShopping(c.env, items.map(normalize)));
+  if (aisle_order) await repo.putAisleOrder(c.env.DB, { ...aisle_order, updated_at: new Date(aisle_order.updated_at).toISOString() });
+  const [list, order, version] = await Promise.all([repo.shoppingSince(c.env.DB, since), repo.getAisleOrder(c.env.DB), repo.catalogueVersion(c.env.DB)]);
+  return c.json<ShoppingSyncResponse>({ ...list, aisle_order: order, catalogue_version: version });
 });
 
 // Thin REST helpers (handy for curl and for non-offline clients). Same LWW path.
@@ -313,8 +324,8 @@ const AddItemSchema = ShoppingItemSchema.omit({ id: true, updated_at: true, chec
 app.post("/shopping", async (c) => {
   const body = await parseBody(c, AddItemSchema);
   if (!body.ok) return body.res;
-  const item: ShoppingItem = { ...body.data, id: newId("s-"), checked: false, updated_at: now() };
-  await repo.applyShopping(c.env.DB, [item]);
+  const [item] = await placeShopping(c.env, [{ ...body.data, id: newId("s-"), checked: false, updated_at: now() }]);
+  await repo.applyShopping(c.env.DB, [item!]);
   return c.json(item, 201);
 });
 
@@ -327,6 +338,25 @@ app.patch("/shopping/:id", async (c) => {
   await repo.applyShopping(c.env.DB, [next]);
   return c.json(next);
 });
+
+// ---------- ingredient catalogue ----------
+app.get("/catalogue", async (c) => c.json<CatalogueData>(await repo.loadCatalogue(c.env.DB)));
+
+/** A person moved a base to another aisle (the shopping list's "move"). Plain overwrite, safe to replay. */
+app.put("/catalogue/bases/:base", async (c) => {
+  const base = storedName(c.req.param("base"));
+  const body = await parseBody(c, z.object({ aisle: z.enum(AISLE_IDS), updated_at: z.string().datetime().optional() }));
+  if (!body.ok) return body.res;
+  if (!base) return c.json<ValidationErrorBody>({ error: "validation", fields: { base: "Empty base" } }, 400);
+  await repo.setBaseAisle(c.env.DB, base, body.data.aisle, body.data.updated_at ?? "1970-01-01T00:00:00.000Z");
+  return c.json({ base, aisle: body.data.aisle });
+});
+
+/**
+ * Resolves every recipe's ingredient bases again (with the model for unknown items when it is
+ * available). Idempotent and safe to rerun; also accepts IMPORT_TOKEN, so it can run from a shell.
+ */
+app.put("/catalogue/backfill", async (c) => c.json(await backfillBases(c.env, { model: true, cursor: c.req.query("cursor") })));
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import worker from "../../worker/index";
@@ -11,6 +11,10 @@ import { TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedI
 const MIGRATIONS = resolve(import.meta.dirname, "../../migrations");
 const MIGRATION = "0006_tag_groups.sql";
 const sql = readFileSync(resolve(MIGRATIONS, MIGRATION), "utf8");
+/** 0006 and every later migration, so the app the tests call finds its tables. */
+const migrate = (): void => {
+  for (const f of readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql") && f >= MIGRATION).sort()) sqlite.exec(readFileSync(resolve(MIGRATIONS, f), "utf8"));
+};
 
 let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string };
 let sqlite: DatabaseSync;
@@ -64,7 +68,7 @@ describe("migration 0006 (tag groups)", () => {
     row("a", old);
     row("b", ["breakfast", "course:breakfast"]);
     row("c", ["course:main", "list:next-up"]);
-    sqlite.exec(sql);
+    migrate();
 
     expect(tagsOf("a")).toEqual(["course:main", "method:oven", "list:next-up", "status:stub", "todo:method", "list:friends", "list:birthday", "diet:vegan", "cuisine:indian"]);
     expect(tagsOf("a")).toEqual(upgradeTags(old));
@@ -86,7 +90,7 @@ describe("migration 0006 (tag groups)", () => {
   it("adds one migration revision on top of existing history", async () => {
     row("h", ["soup"]);
     revisionFromRow("h", "editor", "max", OLD_AT);
-    sqlite.exec(sql);
+    migrate();
     expect(brief(await revisions("h"))).toEqual([
       ["migration", null, ["tags +course:soup -soup"]],
       ["editor", "max", []],
@@ -95,7 +99,7 @@ describe("migration 0006 (tag groups)", () => {
 
   it("writes snapshots the Worker's own writes compare equal to (a no-op save records nothing)", async () => {
     row("n", ["main"]);
-    sqlite.exec(sql);
+    migrate();
     const before = (await revisions("n")).length;
     const r = (await call<{ recipe: Recipe }>("/recipes/n")).body.recipe;
     const input: RecipeInput = { title: r.title, sections: r.sections, steps_md: r.steps_md, notes_md: r.notes_md, tags: r.tags };
@@ -117,7 +121,7 @@ describe("restoring a snapshot from before the tag groups", () => {
     row("r", ["main", "quick_old", "vegan"]);
     revisionFromRow("r", "editor", "max", OLD_AT);
     sqlite.prepare(`UPDATE recipes SET tags_json = '["main"]' WHERE id = 'r'`).run();
-    sqlite.exec(sql);
+    migrate();
     const list = await revisions("r");
     const old = list.at(-1)!;
     expect((await call<Revision>(`/recipes/r/revisions/${old.id}`)).body.snapshot.tags).toEqual(["main", "quick_old", "vegan"]);
@@ -132,7 +136,7 @@ describe("restoring a snapshot from before the tag groups", () => {
 describe("tag edits queued by an old build", () => {
   it("map legacy names on the server and reject a tag that cannot be upgraded", async () => {
     row("t", ["main"]);
-    sqlite.exec(sql);
+    migrate();
     const res = await call<Recipe>("/recipes/t/tags", json("PATCH", { add: ["vegan", "next-up"], remove: ["main"] }));
     expect(res.status).toBe(200);
     expect(tagsOf("t")).toEqual(["diet:vegan", "list:next-up"]);

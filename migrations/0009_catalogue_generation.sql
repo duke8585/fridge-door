@@ -1,0 +1,10 @@
+CREATE TABLE catalogue_generation (id INTEGER PRIMARY KEY CHECK(id = 1), value INTEGER NOT NULL);
+INSERT INTO catalogue_generation VALUES (1, 1);
+CREATE TRIGGER generation_ingredient_bases_insert AFTER INSERT ON ingredient_bases BEGIN UPDATE catalogue_generation SET value = value + 1 WHERE id = 1; END;
+CREATE TRIGGER generation_ingredient_bases_update AFTER UPDATE ON ingredient_bases BEGIN UPDATE catalogue_generation SET value = value + 1 WHERE id = 1; END;
+CREATE TRIGGER generation_ingredient_bases_delete AFTER DELETE ON ingredient_bases BEGIN UPDATE catalogue_generation SET value = value + 1 WHERE id = 1; END;
+CREATE TRIGGER generation_ingredient_aliases_insert AFTER INSERT ON ingredient_aliases BEGIN UPDATE catalogue_generation SET value = value + 1 WHERE id = 1; END;
+CREATE TRIGGER generation_ingredient_aliases_update AFTER UPDATE ON ingredient_aliases BEGIN UPDATE catalogue_generation SET value = value + 1 WHERE id = 1; END;
+CREATE TRIGGER generation_ingredient_aliases_delete AFTER DELETE ON ingredient_aliases BEGIN UPDATE catalogue_generation SET value = value + 1 WHERE id = 1; END;
+CREATE TRIGGER generation_recipe_metadata AFTER UPDATE OF sections_json ON recipes WHEN OLD.sections_json != NEW.sections_json BEGIN UPDATE catalogue_generation SET value = value + 1 WHERE id = 1; END;
+INSERT OR IGNORE INTO ingredient_aliases(alias,base,origin,updated_at) VALUES ('red apple','apple','seed','2026-11-10T00:00:00.000Z'), ('dark brown sugar','brown sugar','seed','2026-11-10T00:00:00.000Z');

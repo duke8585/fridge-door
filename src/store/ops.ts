@@ -1,3 +1,4 @@
+import type { Aisle, AisleOrder } from "../../shared/catalogue";
 import type { Comment, CoverFocus, RecipeDetail, RecipeSummary, ShoppingItem, Stars, User } from "../../shared/schema";
 import { applyTagDelta, upgradeTag } from "../../shared/tags";
 
@@ -11,11 +12,15 @@ export type OutboxOp =
   | { kind: "tags.delta"; recipe_id: string; user: User; add: string[]; remove: string[]; at?: string }
   | { kind: "cover.focus"; recipe_id: string; user: User; focus: CoverFocus | null; at?: string }
   | { kind: "comment.put"; comment: Comment }
-  | { kind: "comment.delete"; id: string; recipe_id: string; user: User };
+  | { kind: "comment.delete"; id: string; recipe_id: string; user: User }
+  | { kind: "aisle.order"; order: AisleOrder }
+  | { kind: "catalogue.aisle"; base: string; aisle: Aisle; updated_at?: string };
 
 export function opRecipeId(op: OutboxOp): string | undefined {
   switch (op.kind) {
     case "shopping":
+    case "aisle.order":
+    case "catalogue.aisle":
       return undefined;
     case "comment.put":
       return op.comment.recipe_id;

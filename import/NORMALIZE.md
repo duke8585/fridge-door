@@ -1,7 +1,7 @@
 # Recipe normalization contract
 
 One contract for every way a recipe enters the app: the Asana backfill now, the URL importer
-(Haiku in the Worker) and MCP writes later. The checker is
+(Claude in the Worker) and MCP writes later. The checker is
 `scripts/check-import.ts` (`npm run check-import`). A record that fails the checker is not done.
 
 ## Who decides what
@@ -48,8 +48,15 @@ The normalizer writes `import/llm/<gid>.json` with only `{ recipe, review }`.
 ## Ingredients
 
 Shape: `{ item, qty?, qtyMax?, unit?, prep?, note? }`. Units: `g kg ml l tsp tbsp piece clove` only.
+The server adds `base` from `item`; leave it out.
 
-- `item` is the ingredient, lowercase, singular where natural: "red lentils", "egg", "garlic".
+<!-- generated from ITEM_RULES in shared/catalogue.ts; test/worker/normalize.test.ts fails when this list differs -->
+- `item` names one ingredient as a shop sells it: English, lowercase (proper nouns keep their capitals), singular where natural: "egg", "red onion", "chickpea", "coconut milk", "Dijon mustard".
+- Keep words that change what to buy ("brown sugar", "smoked paprika", "red lentil", "ground coriander"). Put preparation, size, ripeness and freshness into `prep` or `note`: item "onion" with prep "finely chopped", not "finely chopped onion".
+- One ingredient per line: "salt" and "black pepper" are two lines. Alternatives go into `note` ("or 1 tsp dried"), never "butter or margarine" in `item`.
+- No brands, amounts or packaging in `item`; use the common name ("chickpea", not "canned Kichererbsen 400 g").
+- The server maps every `item` to a canonical base (e.g. "Granny Smith apples" -> apple) and an aisle for the shopping list. A plain common name resolves without guessing.
+<!-- end generated -->
 - `prep` is what you do to it: "finely chopped", "washed twice", "soft".
 - `note` is everything that is not a quantity: "to taste", "a pinch", "optional", "or 1 tsp dried",
   "medium". An ingredient without a `qty` must have a `note` saying why ("to taste", "for frying").

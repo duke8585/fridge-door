@@ -1,11 +1,14 @@
 import { newId } from "../lib/id";
 import { useMemo, useState, type FormEvent } from "react";
 import { parseIngredientLine } from "../../shared/parse";
+import { AISLES, aisleLabel, completeAisleOrder, isAisle, resolveLocal, singularKey } from "../../shared/catalogue";
 import { formatQty } from "../../shared/scale";
-import { groupShopping, nextTimestamp } from "../../shared/shopping";
+import { byAisle, groupShopping, nextTimestamp } from "../../shared/shopping";
 import { useSignal } from "../lib/signal";
 import { Link } from "../lib/router";
-import { addShoppingItems, clearAll, clearChecked, removeItem, removeRecipe, setGroupChecked, shopping, toggleItem } from "../store/shopping";
+import { aisleOrder, setAisleOrder } from "../store/aisles";
+import { catalogue } from "../store/catalogue";
+import { addShoppingItems, clearAll, clearChecked, moveToAisle, removeItem, removeRecipe, setGroupChecked, shopping, toggleItem } from "../store/shopping";
 import { useArmed } from "../lib/armed";
 import { downloadText, shoppingToMarkdown } from "../lib/shoppingMarkdown";
 
@@ -16,15 +19,26 @@ export function useUncheckedCount(): number {
 
 export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
   const items = useSignal(shopping);
-  const groups = useMemo(() => groupShopping(items.values()), [items]);
+  const cat = useSignal(catalogue);
+  const order = useSignal(aisleOrder);
+  const groups = useMemo(() => groupShopping(items.values(), cat), [items, cat]);
   const [text, setText] = useState("");
   const [query, setQuery] = useState("");
-  // every word must appear in the item name (recipe titles are not searched)
+  const [moving, setMoving] = useState<string | null>(null);
+  const [editingOrder, setEditingOrder] = useState(false);
+  // every word must appear in the base or an item name (recipe titles are not searched)
   const shown = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return groups;
-    return groups.filter((g) => words.every((w) => g.label.toLowerCase().includes(w)));
-  }, [groups, query]);
+    const matching = words.length === 0 ? groups : groups.filter((g) => words.every((w) => [g.key, ...g.lines.map((l) => l.item)].some((n) => n.toLowerCase().includes(w))));
+    return byAisle(matching, order?.order);
+  }, [groups, query, order]);
+  const sections = useMemo(() => byAisle(groups, order?.order), [groups, order]);
+  const aisles = completeAisleOrder(order?.order);
+  const moveAisle = (i: number, by: -1 | 1): void => {
+    const next = [...aisles];
+    [next[i], next[i + by]] = [next[i + by]!, next[i]!];
+    void setAisleOrder(next);
+  };
   const anyChecked = groups.some((g) => g.lines.some((l) => l.checked));
   const live = useMemo(() => [...items.values()].filter((i) => !i.deleted), [items]);
   // the recipes on the list, in the order they were added, with how many items each brought
@@ -48,10 +62,13 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
     e.preventDefault();
     const parsed = parseIngredientLine(text);
     if (!parsed) return;
+    // a name the local catalogue knows gets its base and aisle now; the server resolves the rest
+    const known = resolveLocal(cat, parsed.item);
     void addShoppingItems([
       {
         id: newId(),
         item: parsed.item,
+        ...(known.how !== "unknown" && { base: known.base, aisle: known.aisle }),
         qty: parsed.qty,
         qtyMax: parsed.qtyMax,
         unit: parsed.unit,
@@ -104,52 +121,87 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
       {groups.length === 0 && <p className="muted center">The list is empty.</p>}
       {groups.length > 0 && shown.length === 0 && <p className="muted center">Nothing on the list matches.</p>}
 
-      <ul className="groups">
-        {shown.map((g) => {
-          const showLines = g.lines.length > 1 || g.lines.some((l) => l.qty !== undefined || l.recipe_title);
-          return (
-            <li key={g.key} className={g.allChecked ? "group done" : "group"}>
-              <label className="group-head">
-                <input type="checkbox" checked={g.allChecked} onChange={() => void setGroupChecked(g.key, !g.allChecked)} />
-                <span className="group-label">{g.label}</span>
-                {!showLines && (
-                  <button type="button" className="icon ghost" aria-label="Remove" onClick={() => void removeItem(g.lines[0]!.id)}>
-                    ×
-                  </button>
-                )}
-              </label>
-              {showLines && (
-                <ul className="lines">
-                  {g.lines.map((l) => (
-                    <li key={l.id} className={l.checked ? "line done" : "line"}>
-                      <label>
-                        <input type="checkbox" checked={l.checked} onChange={() => void toggleItem(l.id)} />
-                        <span>
-                          {formatQty(l.qty, l.qtyMax, l.unit) || "-"}
-                          {l.recipe_title && (
-                            <>
-                              {" - "}
-                              {l.recipe_id ? (
-                                <Link href={`/recipes/${l.recipe_id}`} onClick={onNavigate}>
-                                  {l.recipe_title}
-                                </Link>
-                              ) : (
-                                l.recipe_title
-                              )}
-                            </>
-                          )}
-                        </span>
-                      </label>
-                      <button type="button" className="icon ghost" aria-label="Remove" onClick={() => void removeItem(l.id)}>
-                        ×
+      <ul className="aisles">
+        {shown.map((section) => (
+          <li key={section.aisle} className="aisle" data-aisle={section.aisle}>
+            <h2 className="aisle-head">{aisleLabel(section.aisle)}</h2>
+            <ul className="groups">
+              {section.groups.map((g) => {
+                const differs = (item: string): boolean => singularKey(item) !== g.key;
+                const showLines = g.lines.length > 1 || g.lines.some((l) => l.qty !== undefined || l.recipe_title || differs(l.item));
+                return (
+                  <li key={g.key} className={g.allChecked ? "group done" : "group"}>
+                    <label className="group-head">
+                      <input type="checkbox" checked={g.allChecked} onChange={() => void setGroupChecked(g.key, !g.allChecked)} />
+                      <span className="group-label">{g.key}</span>
+                      <button
+                        type="button"
+                        className="icon ghost small"
+                        aria-label={`Move ${g.key} to another aisle`}
+                        aria-expanded={moving === g.key}
+                        onClick={() => setMoving(moving === g.key ? null : g.key)}
+                      >
+                        aisle
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          );
-        })}
+                      {!showLines && (
+                        <button type="button" className="icon ghost" aria-label="Remove" onClick={() => void removeItem(g.lines[0]!.id)}>
+                          ×
+                        </button>
+                      )}
+                    </label>
+                    {moving === g.key && (
+                      <select
+                        className="aisle-select"
+                        aria-label={`Aisle for ${g.key}`}
+                        value={g.aisle}
+                        autoFocus
+                        onChange={(e) => {
+                          if (isAisle(e.target.value)) void moveToAisle(g.key, e.target.value);
+                          setMoving(null);
+                        }}
+                      >
+                        {AISLES.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {showLines && (
+                      <ul className="lines">
+                        {g.lines.map((l) => (
+                          <li key={l.id} className={l.checked ? "line done" : "line"}>
+                            <label>
+                              <input type="checkbox" checked={l.checked} onChange={() => void toggleItem(l.id)} />
+                              <span>
+                                {[formatQty(l.qty, l.qtyMax, l.unit), differs(l.item) ? l.item : ""].filter(Boolean).join(" ") || "-"}
+                                {l.recipe_title && (
+                                  <>
+                                    {" - "}
+                                    {l.recipe_id ? (
+                                      <Link href={`/recipes/${l.recipe_id}`} onClick={onNavigate}>
+                                        {l.recipe_title}
+                                      </Link>
+                                    ) : (
+                                      l.recipe_title
+                                    )}
+                                  </>
+                                )}
+                              </span>
+                            </label>
+                            <button type="button" className="icon ghost" aria-label="Remove" onClick={() => void removeItem(l.id)}>
+                              ×
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </li>
+        ))}
       </ul>
 
       {live.length > 0 && (
@@ -170,11 +222,29 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
           className="link-button small"
           onClick={() => {
             const date = new Date().toISOString().slice(0, 10);
-            downloadText(`shopping-list-${date}.md`, shoppingToMarkdown(groups, location.origin, date));
+            downloadText(`shopping-list-${date}.md`, shoppingToMarkdown(sections, location.origin, date));
           }}
         >
           Download as markdown
         </button>
+      )}
+      <button type="button" className="link-button small" aria-expanded={editingOrder} onClick={() => setEditingOrder(!editingOrder)}>
+        {editingOrder ? "Done ordering aisles" : "Aisle order"}
+      </button>
+      {editingOrder && (
+        <ol className="aisle-order" aria-label="Aisle order, shared by both of you">
+          {aisles.map((a, i) => (
+            <li key={a}>
+              <span>{aisleLabel(a)}</span>
+              <button type="button" className="icon ghost" aria-label={`Move ${aisleLabel(a)} up`} disabled={i === 0} onClick={() => moveAisle(i, -1)}>
+                ↑
+              </button>
+              <button type="button" className="icon ghost" aria-label={`Move ${aisleLabel(a)} down`} disabled={i === aisles.length - 1} onClick={() => moveAisle(i, 1)}>
+                ↓
+              </button>
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   );

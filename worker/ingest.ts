@@ -7,6 +7,8 @@ import { z } from "zod";
 import { findDuplicates, type DuplicateCandidate } from "../shared/duplicates";
 import { lintRecipe, withBoardTags } from "../shared/lint";
 import { MAX_TAGS, RecipeInputSchema, type Comment, type RecipeInput, type User } from "../shared/schema";
+import type { AiEnv } from "./ai";
+import { resolveRecipe } from "./catalogue";
 import * as repo from "./repo";
 
 export const MAX_REVIEW_NOTES = 15;
@@ -43,12 +45,13 @@ export type IngestResult =
   | { ok: false; reason: "problems"; problems: string[] }
   | { ok: false; reason: "duplicate"; candidates: DuplicateCandidate[] };
 
-/** Lint, then the duplicate guard (skipped with confirmDuplicate), then create with the notes comment. */
+/** Lint, then the duplicate guard (skipped with confirmDuplicate), then create with resolved bases and the notes comment. */
 export async function ingestRecipe(
-  db: D1Database,
+  env: AiEnv,
   draft: Draft,
   opts: { author: User; source: IngestSource; confirmDuplicate: boolean; now: string },
 ): Promise<IngestResult> {
+  const db = env.DB;
   const problems = draftProblems(draft);
   if (problems.length) return { ok: false, reason: "problems", problems };
   if (!opts.confirmDuplicate) {
@@ -56,7 +59,7 @@ export async function ingestRecipe(
     if (candidates.length) return { ok: false, reason: "duplicate", candidates };
   }
   const id = await repo.freshRecipeId(db, draft.recipe.title);
-  await repo.upsertRecipe(db, id, withServerTags(draft), { author: opts.author, source: opts.source, now: opts.now });
+  await repo.upsertRecipe(db, id, await resolveRecipe(env, withServerTags(draft)), { author: opts.author, source: opts.source, now: opts.now });
   const comment = notesComment(id, opts.author, "Import notes:", draft.review_notes, opts.now);
   if (comment) await repo.putComment(db, comment);
   return { ok: true, id };

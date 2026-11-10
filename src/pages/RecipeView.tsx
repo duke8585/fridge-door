@@ -15,6 +15,7 @@ import { useSignal } from "../lib/signal";
 import { currentUser } from "../lib/user";
 import { loginHref } from "../lib/api";
 import { addTag, deleteComment, detailSignal, loadRecipe, putComment, rate, removeTag, type LoadError } from "../store/recipes";
+import { catalogue } from "../store/catalogue";
 import { addShoppingItems } from "../store/shopping";
 import { openRecipes } from "../store/sync";
 
@@ -136,7 +137,7 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
 
   const addToList = async (): Promise<void> => {
     const now = nextTimestamp();
-    const rows = ingredientsToShopping(scaled.flatMap((s) => s.ingredients), recipe, () => newId(), now);
+    const rows = ingredientsToShopping(scaled.flatMap((s) => s.ingredients), recipe, () => newId(), now, catalogue.get());
     await addShoppingItems(rows);
     setToast(`Added ${rows.length} items${f !== 1 ? ` (x${formatNumber(f)})` : ""}`);
     setTimeout(() => setToast(undefined), 2500);

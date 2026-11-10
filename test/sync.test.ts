@@ -59,7 +59,7 @@ describe("nextTimestamp", () => {
 });
 
 describe("groupShopping", () => {
-  it("groups by normalized item, unchecked groups first", () => {
+  it("groups by base, unchecked groups first", () => {
     const groups = groupShopping([
       item("1", { item: "Butter", qty: 100, unit: "g", recipe_title: "Pancakes" }),
       item("2", { item: "butter ", qty: 200, unit: "g", recipe_title: "Cake" }),
@@ -67,7 +67,7 @@ describe("groupShopping", () => {
     ]);
     expect(groups.map((g) => [g.key, g.lines.map((l) => l.recipe_title), g.allChecked])).toEqual([
       ["butter", ["Cake", "Pancakes"], false],
-      ["apples", [undefined], true],
+      ["apple", [undefined], true],
     ]);
   });
   it("adds unscalable ingredients without qty", () => {

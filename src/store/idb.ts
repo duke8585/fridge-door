@@ -26,11 +26,13 @@ export function db(): Promise<IDBPDatabase<LocalDB>> {
   return dbp;
 }
 
-export async function kvGet<T>(key: "summaries" | "shoppingRev"): Promise<T | undefined> {
+export type KvKey = "summaries" | "shoppingRev" | "catalogue" | "aisleOrder";
+
+export async function kvGet<T>(key: KvKey): Promise<T | undefined> {
   return (await (await db()).get("kv", key)) as T | undefined;
 }
 
-export async function kvSet(key: "summaries" | "shoppingRev", value: unknown): Promise<void> {
+export async function kvSet(key: KvKey, value: unknown): Promise<void> {
   await (await db()).put("kv", value, key);
 }
 

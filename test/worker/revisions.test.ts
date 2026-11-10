@@ -222,8 +222,9 @@ describe("restore", () => {
     at(2);
     const res = await call<Recipe>(`/recipes/pancakes/revisions/${baseline.id}/restore`, send("POST", {}, "partner"));
     expect(res.status).toBe(200);
-    expect(contentOf(res.body)).toEqual(contentOf({ ...pancakes, yield: { amount: 4, unit: "servings" } }));
-    expect(contentOf(await recipe("pancakes"))).toEqual(contentOf(pancakes));
+    const withBase = { ...pancakes, sections: [{ ingredients: [{ item: "flour", qty: 200, unit: "g" as const, base: "flour" }] }] };
+    expect(contentOf(res.body)).toEqual(contentOf({ ...withBase, yield: { amount: 4, unit: "servings" } }));
+    expect(contentOf(await recipe("pancakes"))).toEqual(contentOf(withBase));
     expect((await recipe("pancakes")).ratings).toEqual([{ user: "max", stars: 5 }]);
     expect(brief(await revisions("pancakes"))).toEqual([
       ["restore", "partner", ["title", "tags +course:breakfast", "ingredients +1 -1"]],

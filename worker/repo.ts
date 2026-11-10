@@ -14,7 +14,8 @@ import type {
   Time,
   User,
 } from "../shared/schema";
-import { restoredContent, type Revision, type RevisionMeta, type RevisionSource } from "../shared/revisions";
+import type { Aisle, AisleOrder, CatalogueAlias, CatalogueData, CatalogueEntry } from "../shared/catalogue";
+import type { Revision, RevisionMeta, RevisionSource } from "../shared/revisions";
 
 type RecipeRow = {
   id: string;
@@ -47,6 +48,8 @@ type ShoppingRow = {
   unit: string | null;
   recipe_id: string | null;
   recipe_title: string | null;
+  base: string | null;
+  aisle: string | null;
   checked: number;
   deleted: number;
   updated_at: string;
@@ -62,6 +65,9 @@ const rowToTime = (r: Pick<RecipeRow, "time_total_min" | "time_active_min">): Ti
   r.time_total_min === null ? undefined : { total_min: r.time_total_min, active_min: nn(r.time_active_min) };
 
 const ingredientItems = (sectionsJson: string): string[] => (JSON.parse(sectionsJson) as Section[]).flatMap((s) => s.ingredients.map((i) => i.item));
+const ingredientBases = (sectionsJson: string): string[] => [
+  ...new Set((JSON.parse(sectionsJson) as Section[]).flatMap((s) => s.ingredients.flatMap((i) => (i.base ? [i.base] : [])))),
+];
 
 function rowToRecipe(r: RecipeRow, ratings: Rating[]): Recipe {
   return {
@@ -91,6 +97,8 @@ function rowToShopping(r: ShoppingRow): ShoppingItem {
     unit: nn(r.unit) as MetricUnit | undefined,
     recipe_id: nn(r.recipe_id),
     recipe_title: nn(r.recipe_title),
+    base: nn(r.base),
+    aisle: nn(r.aisle) as Aisle | undefined,
     checked: r.checked === 1,
     deleted: r.deleted === 1 ? true : undefined,
     updated_at: r.updated_at,
@@ -111,6 +119,7 @@ export async function listRecipes(db: D1Database): Promise<RecipeSummary[]> {
     title: r.title,
     tags: JSON.parse(r.tags_json) as string[],
     ingredients: ingredientItems(r.sections_json),
+    bases: ingredientBases(r.sections_json),
     notes_md: r.notes_md,
     yield: r.yield_amount !== null && r.yield_unit !== null ? { amount: r.yield_amount, unit: r.yield_unit } : undefined,
     time: rowToTime(r),
@@ -196,6 +205,7 @@ export type IndexedRecipe = {
   source_url?: string;
   has_cover: boolean;
   ingredients: string[];
+  bases: string[];
   notes_md: string;
   ratings: Rating[];
 };
@@ -217,6 +227,7 @@ export async function recipeIndex(db: D1Database): Promise<IndexedRecipe[]> {
     source_url: nn(r.source_url),
     has_cover: r.cover_key !== null,
     ingredients: ingredientItems(r.sections_json),
+    bases: ingredientBases(r.sections_json),
     notes_md: r.notes_md,
     ratings: ratings.get(r.id) ?? [],
   }));
@@ -226,11 +237,20 @@ export async function recipeIndex(db: D1Database): Promise<IndexedRecipe[]> {
 /** Who changed a recipe's content, how, and when. Every content write takes one. */
 export type ContentChange = { author: User; source: Exclude<RevisionSource, "baseline" | "migration">; now: string };
 
+/**
+ * The sections without the ingredients' `base`: a base is derived from the item and the catalogue,
+ * not content, so a new base never makes a revision and history diffs show only what people wrote.
+ * For sections without bases this is the same text as json(sections_json), the form 0006 and 0007 wrote.
+ */
+const SECTIONS_CONTENT = `json((SELECT json_group_array(json_set(s.value, '$.ingredients',
+    json((SELECT json_group_array(json_remove(i.value, '$.base')) FROM json_each(s.value, '$.ingredients') i))))
+  FROM json_each(sections_json) s))`;
+
 /** The recipes row's content as snapshot JSON, built in SQL so it is exactly what the batch wrote. */
 const SNAPSHOT = `json_object('title', title,
   'yield', json(CASE WHEN yield_amount IS NULL THEN NULL ELSE json_object('amount', yield_amount, 'unit', yield_unit) END),
   'time', json(CASE WHEN time_total_min IS NULL THEN NULL ELSE json_object('total_min', time_total_min, 'active_min', time_active_min) END),
-  'sections', json(sections_json), 'steps_md', steps_md, 'notes_md', notes_md, 'source_url', source_url, 'tags', json(tags_json))`;
+  'sections', ${SECTIONS_CONTENT}, 'steps_md', steps_md, 'notes_md', notes_md, 'source_url', source_url, 'tags', json(tags_json))`;
 const LATEST = "(SELECT MAX(id) FROM recipe_revisions WHERE recipe_id = ?1)";
 const TAG_COALESCE_MS = 10 * 60 * 1000;
 
@@ -368,14 +388,6 @@ export async function applyImport(
   ]);
 }
 
-/** Writes the revision's content and tags as current (see `restoredContent`). False if there is no such revision. Already current: records nothing. */
-export async function restoreRevision(db: D1Database, id: string, rev: number, change: ContentChange): Promise<boolean> {
-  const revision = await getRevision(db, id, rev);
-  if (!revision) return false;
-  await upsertRecipe(db, id, restoredContent(revision.snapshot), change);
-  return true;
-}
-
 export async function getCoverKey(db: D1Database, id: string): Promise<{ cover_key: string | null } | null> {
   return db.prepare("SELECT cover_key FROM recipes WHERE id = ?").bind(id).first<{ cover_key: string | null }>();
 }
@@ -462,10 +474,10 @@ export async function deleteComment(db: D1Database, id: string): Promise<void> {
 export async function applyShopping(db: D1Database, items: readonly ShoppingItem[]): Promise<void> {
   if (items.length === 0) return;
   const stmt = db.prepare(
-    `INSERT INTO shopping_items (id, item, qty, qty_max, unit, recipe_id, recipe_title, checked, deleted, updated_at, rev)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(rev), 0) + 1 FROM shopping_items))
+    `INSERT INTO shopping_items (id, item, qty, qty_max, unit, recipe_id, recipe_title, base, aisle, checked, deleted, updated_at, rev)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(rev), 0) + 1 FROM shopping_items))
      ON CONFLICT(id) DO UPDATE SET item=excluded.item, qty=excluded.qty, qty_max=excluded.qty_max, unit=excluded.unit,
-       recipe_id=excluded.recipe_id, recipe_title=excluded.recipe_title, checked=excluded.checked,
+       recipe_id=excluded.recipe_id, recipe_title=excluded.recipe_title, base=excluded.base, aisle=excluded.aisle, checked=excluded.checked,
        deleted=excluded.deleted, updated_at=excluded.updated_at, rev=excluded.rev
      WHERE excluded.updated_at > shopping_items.updated_at`,
   );
@@ -479,6 +491,8 @@ export async function applyShopping(db: D1Database, items: readonly ShoppingItem
         i.unit ?? null,
         i.recipe_id ?? null,
         i.recipe_title ?? null,
+        i.base ?? null,
+        i.aisle ?? null,
         i.checked ? 1 : 0,
         i.deleted ? 1 : 0,
         i.updated_at,
@@ -555,5 +569,111 @@ export async function setAiOutage(db: D1Database, outage: AiOutage): Promise<voi
   await db
     .prepare("INSERT INTO ai_status (key, reason, until) VALUES ('anthropic', ?1, ?2) ON CONFLICT(key) DO UPDATE SET reason = ?1, until = ?2")
     .bind(outage.reason, outage.until)
+    .run();
+}
+
+// ---------- ingredient catalogue (shared/catalogue.ts) ----------
+export async function loadCatalogue(db: D1Database): Promise<CatalogueData> {
+  const [bases, aliases, generation] = await db.batch([
+    db.prepare("SELECT base, aisle, origin, updated_at FROM ingredient_bases ORDER BY base"),
+    db.prepare("SELECT alias, base, origin, updated_at FROM ingredient_aliases ORDER BY alias"),
+    db.prepare("SELECT value FROM catalogue_generation WHERE id = 1"),
+  ]);
+  const b = bases!.results as (CatalogueEntry & { updated_at: string })[];
+  const a = aliases!.results as (CatalogueAlias & { updated_at: string })[];
+  return {
+    version: String((generation!.results[0] as { value: number }).value),
+    bases: b.map(({ base, aisle, origin }) => ({ base, aisle, origin })),
+    aliases: a.map(({ alias, base, origin }) => ({ alias, base, origin })),
+  };
+}
+
+/** Transactional trigger-maintained generation, also invalidating derived recipe summaries. */
+export async function catalogueVersion(db: D1Database): Promise<string> {
+  const row = await db.prepare("SELECT value FROM catalogue_generation WHERE id = 1").first<{ value: number }>();
+  return String(row!.value);
+}
+
+export type AutoEntry = { alias: string; base: string; aisle: Aisle };
+
+/** What the model classified. Never replaces an entry that exists: seed and user entries win, and so does the first auto one. */
+export async function addAutoEntries(db: D1Database, entries: readonly AutoEntry[], now: string): Promise<void> {
+  if (entries.length === 0) return;
+  const base = db.prepare("INSERT OR IGNORE INTO ingredient_bases (base, aisle, origin, updated_at) VALUES (?, ?, 'auto', ?)");
+  const alias = db.prepare("INSERT OR IGNORE INTO ingredient_aliases (alias, base, origin, updated_at) VALUES (?, ?, 'auto', ?)");
+  await db.batch(
+    entries.flatMap((e) => [base.bind(e.base, e.aisle, now), ...(e.alias !== e.base ? [alias.bind(e.alias, e.base, now)] : [])]),
+  );
+}
+
+/** A person put `base` into `aisle`: the base becomes a user entry (created when it was only a rule result). */
+export async function setBaseAisle(db: D1Database, base: string, aisle: Aisle, now: string): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO ingredient_bases (base, aisle, origin, updated_at) VALUES (?1, ?2, 'user', ?3)
+       ON CONFLICT(base) DO UPDATE SET aisle = ?2, origin = 'user', updated_at = ?3 WHERE ingredient_bases.origin != 'user' OR excluded.updated_at > ingredient_bases.updated_at`,
+    )
+    .bind(base, aisle, now)
+    .run();
+}
+
+/**
+ * A person said `alias` means `base` (and, optionally, which aisle it is in). A new base without an
+ * aisle goes to 'other'. An alias equal to its base only sets the base.
+ */
+export async function setUserEntry(db: D1Database, e: { alias: string; base: string; aisle?: Aisle }, now: string): Promise<CatalogueEntry> {
+  const stmts = [
+    e.aisle
+      ? db
+          .prepare(
+            `INSERT INTO ingredient_bases (base, aisle, origin, updated_at) VALUES (?1, ?2, 'user', ?3)
+             ON CONFLICT(base) DO UPDATE SET aisle = ?2, origin = 'user', updated_at = ?3 WHERE ingredient_bases.origin != 'user' OR excluded.updated_at > ingredient_bases.updated_at`,
+          )
+          .bind(e.base, e.aisle, now)
+      : db.prepare("INSERT OR IGNORE INTO ingredient_bases (base, aisle, origin, updated_at) VALUES (?, 'other', 'user', ?)").bind(e.base, now),
+  ];
+  if (e.alias !== e.base) {
+    stmts.push(
+      db
+        .prepare(
+          `INSERT INTO ingredient_aliases (alias, base, origin, updated_at) VALUES (?1, ?2, 'user', ?3)
+           ON CONFLICT(alias) DO UPDATE SET base = ?2, origin = 'user', updated_at = ?3 WHERE ingredient_aliases.origin != 'user' OR excluded.updated_at > ingredient_aliases.updated_at`,
+        )
+        .bind(e.alias, e.base, now),
+    );
+  }
+  await db.batch(stmts);
+  return (await db.prepare("SELECT base, aisle, origin FROM ingredient_bases WHERE base = ?").bind(e.base).first<CatalogueEntry>())!;
+}
+
+/** Every recipe's ingredient JSON, for the base backfill. */
+export async function allSections(db: D1Database, cursor = "", limit = 50): Promise<{ id: string; sections_json: string }[]> {
+  return (await db.prepare("SELECT id, sections_json FROM recipes WHERE id > ? ORDER BY id LIMIT ?").bind(cursor, limit).all<{ id: string; sections_json: string }>()).results;
+}
+
+/**
+ * Writes bases into a recipe's ingredients when they are all that changed: only while sections_json
+ * is still `before` (a concurrent edit wins), without a revision and without moving updated_at,
+ * since a derived field is no edit.
+ */
+export async function setSectionBases(db: D1Database, id: string, before: string, after: string): Promise<boolean> {
+  const res = await db.prepare("UPDATE recipes SET sections_json = ? WHERE id = ? AND sections_json = ?").bind(after, id, before).run();
+  return res.meta.changes === 1;
+}
+
+// ---------- household settings ----------
+export async function getAisleOrder(db: D1Database): Promise<AisleOrder | null> {
+  const row = await db.prepare("SELECT value, updated_at FROM household_settings WHERE key = 'aisle_order'").first<{ value: string; updated_at: string }>();
+  return row ? { order: JSON.parse(row.value) as Aisle[], updated_at: row.updated_at } : null;
+}
+
+/** Last write wins on updated_at, like shopping items; an older or equal write is ignored. */
+export async function putAisleOrder(db: D1Database, o: AisleOrder): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO household_settings (key, value, updated_at) VALUES ('aisle_order', ?1, ?2)
+       ON CONFLICT(key) DO UPDATE SET value = ?1, updated_at = ?2 WHERE excluded.updated_at > household_settings.updated_at`,
+    )
+    .bind(JSON.stringify(o.order), o.updated_at)
     .run();
 }

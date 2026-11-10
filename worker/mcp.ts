@@ -5,6 +5,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import styleGuide from "../import/NORMALIZE.md?raw";
+import { AISLE_IDS, AISLES, buildCatalogue, resolveLocal, storedName } from "../shared/catalogue";
 import { MAX_COVER_BYTES } from "../shared/cover";
 import { recipeToMarkdown, scaleSections } from "../shared/recipeMarkdown";
 import {
@@ -18,14 +19,15 @@ import {
   type User,
 } from "../shared/schema";
 import { ingredientsToShopping } from "../shared/shopping";
-import { searchRank, queryWords } from "../shared/search";
+import { searchRank, queryTerms } from "../shared/search";
 import { applyTagDelta, overMax, renameLegacyTag, STUB_TAG, TAG_GROUPS, TAG_GROUP_NAMES, tagProblem } from "../shared/tags";
+import { backfillBases, placeShopping, resolveRecipe } from "./catalogue";
 import { storeCover } from "./covers";
 import { ReviewNotesSchema, draftProblems, ingestRecipe, notesComment, withServerTags } from "./ingest";
 import { readAtMost } from "./pageFetch";
 import * as repo from "./repo";
 
-export type McpEnv = { DB: D1Database; COVERS: R2Bucket };
+export type McpEnv = { DB: D1Database; COVERS: R2Bucket; ANTHROPIC_API_KEY?: string };
 /** `origin` is the app's public origin, for links back to the recipes. */
 export type McpContext = { env: McpEnv; user: User; origin: string };
 
@@ -62,6 +64,7 @@ function serverInstructions(user: User): string {
     "create_recipe and update_recipe reject recipes that break the guide and list every problem; fix all of them and retry.",
     "create_recipe also stops on a likely duplicate and shows the candidates. Retry with confirm_duplicate: true only when it is really a different recipe.",
     "update_recipe replaces the whole recipe: start from get_recipe and pass its updated_at as expected_updated_at.",
+    "Every ingredient item is mapped to a canonical base and an aisle on save. Write items as the style guide says; lookup_ingredients shows what an item resolves to, set_ingredient corrects the catalogue when the user asks.",
     "There is no delete.",
   ].join("\n");
 }
@@ -80,6 +83,8 @@ The contract below was written for the Asana import. Through MCP:
 - When the user asks for it, set_tags adds any valid tag as them, e.g. list:next-up or
   todo:correction. Free groups (list, collection, from) take new values; reuse a value from
   "Tags in use now" where one fits.
+- The server sets each ingredient's \`base\` from its \`item\` (leave \`base\` out). Before writing
+  an unusual item, lookup_ingredients shows the base and aisle it would get.
 
 `;
 
@@ -173,7 +178,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
     "search_recipes",
     {
       description:
-        "Find recipes. Every query word must appear in the title, an ingredient, the notes or a tag value (case-insensitive); title matches come first. Returns compact rows.",
+        "Find recipes. Every query word must appear in the title, an ingredient, the notes or a tag value (case-insensitive), or name one of the recipe's ingredient bases (\"apples\" finds \"red apple\"); title matches come first. Returns compact rows.",
       inputSchema: z.object({
         query: z.string().max(200).optional(),
         tags: z.array(TagSchema).max(10).optional().describe("Full group:value tags; all must match"),
@@ -184,7 +189,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       annotations: READ,
     },
     async ({ query, tags = [], max_total_min, include_stubs, limit }) => {
-      const words = queryWords(query ?? "");
+      const words = queryTerms(query ?? "", buildCatalogue(await repo.loadCatalogue(db)));
       const matches = (await repo.recipeIndex(db))
         .filter((r) => {
           if (!include_stubs && r.tags.includes(STUB_TAG)) return false;
@@ -251,7 +256,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       annotations: WRITE,
     },
     async ({ recipe, review_notes, confirm_duplicate }) => {
-      const result = await ingestRecipe(db, { recipe, review_notes: review_notes ?? [] }, { author: user, source: "mcp", confirmDuplicate: confirm_duplicate, now: now() });
+      const result = await ingestRecipe(env, { recipe, review_notes: review_notes ?? [] }, { author: user, source: "mcp", confirmDuplicate: confirm_duplicate, now: now() });
       if (!result.ok && result.reason === "problems") return lintFailure("create_recipe", result.problems);
       if (!result.ok) {
         return fail(
@@ -288,7 +293,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       const draft = { recipe, review_notes: review_notes ?? [] };
       const problems = draftProblems(draft, current.tags);
       if (problems.length) return lintFailure("update_recipe", problems);
-      if (!(await repo.upsertRecipe(db, id, withServerTags(draft), change(), expected_updated_at))) {
+      if (!(await repo.upsertRecipe(db, id, await resolveRecipe(env, withServerTags(draft)), change(), expected_updated_at))) {
         return conflict((await repo.getRecipe(db, id))?.updated_at ?? "unknown");
       }
       const comment = notesComment(id, user, "Update notes:", draft.review_notes, now());
@@ -379,7 +384,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       if (!recipe) return notFound(id);
       const ingredients = scaleSections(recipe.sections, scale).flatMap((s) => s.ingredients);
       const rows = ingredientsToShopping(ingredients, recipe, () => `s-${crypto.randomUUID()}`, now());
-      await repo.applyShopping(db, rows);
+      await repo.applyShopping(db, await placeShopping(env, rows));
       return ok({ id, scale, added: rows.length });
     },
   );
@@ -403,6 +408,65 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       await storeCover(env, id, row.cover_key, { bytes: image.bytes, type: image.type, ext: image.ext, focus: focus ?? null }, now());
       const saved = (await repo.getRecipe(db, id))!;
       return ok({ id, cover_key: saved.cover_key ?? null, cover_focus: saved.cover_focus });
+    },
+  );
+
+  const AisleSchema = z.enum(AISLE_IDS).describe(AISLES.map((a) => `${a.id}: ${a.label}`).join("; "));
+
+  server.registerTool(
+    "lookup_ingredients",
+    {
+      description:
+        "What ingredient items resolve to in the household catalogue: base, aisle, origin of the entry (seed, auto = classified by a model, user) and how it matched (alias, rule, unknown). Unknown items get a model-chosen base when a recipe with them is saved.",
+      inputSchema: z.object({ items: z.array(z.string().trim().min(1).max(120)).min(1).max(100) }),
+      annotations: READ,
+    },
+    async ({ items }) => {
+      const data = await repo.loadCatalogue(db);
+      const cat = buildCatalogue(data);
+      const origin = new Map(data.bases.map((b) => [b.base, b.origin]));
+      return ok({ results: items.map((item) => ({ item, ...resolveLocal(cat, item), origin: origin.get(resolveLocal(cat, item).base) ?? null })) });
+    },
+  );
+
+  server.registerTool(
+    "list_ingredients",
+    {
+      description: "The catalogue's bases with aisle, origin and aliases. Filter by origin (auto lists what a model classified, for review) or aisle.",
+      inputSchema: z.object({ origin: z.enum(["seed", "auto", "user"]).optional(), aisle: AisleSchema.optional() }),
+      annotations: READ,
+    },
+    async ({ origin, aisle }) => {
+      const data = await repo.loadCatalogue(db);
+      const aliases = new Map<string, string[]>();
+      for (const a of data.aliases) aliases.set(a.base, [...(aliases.get(a.base) ?? []), a.alias]);
+      const bases = data.bases.filter((b) => (!origin || b.origin === origin) && (!aisle || b.aisle === aisle)).map((b) => ({ ...b, aliases: aliases.get(b.base) ?? [] }));
+      return ok({ total: bases.length, bases });
+    },
+  );
+
+  server.registerTool(
+    "set_ingredient",
+    {
+      description:
+        "Correct the catalogue as the user: make `item` resolve to `base` (new or existing), and optionally put the base into `aisle`. Recorded with origin user; every recipe's bases are resolved again afterwards.",
+      inputSchema: z.object({
+        item: z.string().trim().min(1).max(120).describe('The name as recipes write it, e.g. "Granny Smith apples"'),
+        base: z.string().trim().min(1).max(60).describe('The canonical base: English, lowercase, singular, e.g. "apple"'),
+        aisle: AisleSchema.optional().describe("Omit to keep the base's aisle (a new base goes to other)"),
+      }),
+      annotations: { ...WRITE, idempotentHint: true },
+    },
+    async ({ item, base, aisle }) => {
+      const entry = await repo.setUserEntry(db, { alias: storedName(item), base: storedName(base), aisle }, now());
+      let cursor: string | undefined;
+      let updated = 0;
+      do {
+        const page = await backfillBases(env, { model: false, cursor });
+        updated += page.updated;
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor !== undefined);
+      return ok({ item, ...entry, recipes_updated: updated });
     },
   );
 

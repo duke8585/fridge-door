@@ -9,6 +9,7 @@ import { compareRecipes, loadSort, nextSort, saveSort, SORTS, type Sort } from "
 import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
 import { Link } from "../lib/router";
 import { useSignal } from "../lib/signal";
+import { catalogue } from "../store/catalogue";
 import { loadSummaries, recentlyCached, summaries } from "../store/recipes";
 
 /** Shown on the cards as the value alone; the other groups keep their prefix so "todo:method" is not read as a method. */
@@ -25,6 +26,7 @@ const cardTag = (t: string): string => {
  */
 export function RecipeList() {
   const list = useSignal(summaries);
+  const cat = useSignal(catalogue);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // "duration" is a tab like the tag groups, holding the total-time filter
@@ -40,7 +42,7 @@ export function RecipeList() {
 
   const groups = useMemo(() => filterGroups((list ?? []).map((r) => r.tags)), [list]);
   // search and time first; the tag filter and the facet counts both work on top of these
-  const searched = useMemo(() => searchRecipes(list ?? [], q), [list, q]);
+  const searched = useMemo(() => searchRecipes(list ?? [], q, cat), [list, q, cat]);
   const base = useMemo(() => searched.filter((r) => matchesTimeFilter(r.time, time)), [searched, time]);
   const counts = useMemo(() => facetCounts(base.map((r) => r.tags), selected), [base, selected]);
   // like a tag group: each duration counts what it would show with the other filters kept
@@ -49,8 +51,8 @@ export function RecipeList() {
     return new Map(TIME_FILTERS.map((f) => [f.id, tagged.filter((r) => matchesTimeFilter(r.time, f.id)).length]));
   }, [searched, selected]);
   const shown = useMemo(
-    () => searchRecipes(base.filter((r) => matchesTagFilter(r.tags, selected)).sort(compareRecipes(sort)), q),
-    [base, q, selected, sort],
+    () => searchRecipes(base.filter((r) => matchesTagFilter(r.tags, selected)).sort(compareRecipes(sort)), q, cat),
+    [base, q, selected, sort, cat],
   );
   const toggle = (t: string): void =>
     setSelected((s) => {

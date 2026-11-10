@@ -3,6 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script>
+      (() => {
+        let saved;
+        try { saved = localStorage.getItem("fd-theme"); } catch {}
+        document.documentElement.dataset.theme = saved === "light" || saved === "dark"
+          ? saved : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      })();
+    </script>
     <meta name="theme-color" content="#c2410c" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />

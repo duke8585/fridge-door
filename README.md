@@ -12,7 +12,14 @@ offline-first web app on Cloudflare Workers.
 - **Ratings and comments** per person, markdown comments with preview.
 - **Tags** in groups (`course:main`, `cuisine:thai`, `list:next-up`, ...), defined once in
   `shared/tags.ts`. The list filters by group and searches titles, ingredients, tags and notes.
-- **Shopping list** shared between both people, filled from a recipe at its current scale.
+- **Shopping list** shared between both people, filled from a recipe at its current scale. Items
+  are grouped by ingredient base ("red apple" and "apples" are one "apple") under aisle headings,
+  in one household aisle order that either person can reorder. Moving an item to another aisle
+  teaches the catalogue.
+- **Ingredient catalogue** in D1 (`shared/catalogue.ts`): canonical bases with aliases and an aisle.
+  Every saved ingredient gets a base through catalogue lookup, deterministic rules, or Claude
+  Haiku for unknown names. Successful model answers become `auto` entries for review. Without AI,
+  unknown names keep a rule-derived base. Recipe search matches bases too, so "apples" finds "red apple".
 - **Offline first**: the app shell is cached by a service worker, data lives in IndexedDB, and
   edits made offline (shopping items, ratings, tags, comments, cover crop) sync when back online.
 - **Version history** for every recipe, with a diff and restore.
@@ -21,7 +28,48 @@ offline-first web app on Cloudflare Workers.
   mapped field by field.
 - **MCP server** at `/mcp`, so Claude (claude.ai connectors, Claude Code) can search, read, create
   and edit recipes as one of the two people.
+- **Appearance** with a header light/dark switch. The app follows your system until you choose
+  a theme, then remembers that choice on the device. The header also links to the GitHub repository.
 - **Login** with Google or GitHub, limited to an allowlist.
+
+## When ingredient classification uses AI
+
+Classification runs on the server when a recipe is saved. This covers editor creates and edits,
+MCP creates and updates, saved URL imports, changed batch imports, and revision restores.
+Reading recipes, searching, and opening the shopping list do not trigger classification.
+
+For each ingredient, the resolver tries these steps in order:
+
+1. Look up its name in the catalogue of bases and aliases.
+2. Apply deterministic rules, such as singularizing and removing preparation or size words,
+   then look up the result again. Product-changing words such as "dried" and "ground" stay.
+3. Send remaining unknown names to Claude Haiku in batches of up to 60 names. The model proposes
+   a canonical base and aisle. Successful answers are stored with origin `auto`, so later uses
+   normally resolve without another model call.
+
+Shopping items also pass through the resolver when added or submitted during sync. Only live
+items without a base can trigger AI. An item with a base but no aisle gets its aisle from the
+catalogue. Items that already have both fields skip classification. Offline additions appear
+immediately and can be classified when they sync. Adding a known recipe ingredient to the list
+normally needs no model call.
+
+The [recipe backfill](docs/DEPLOY.md#ingredient-bases-for-existing-recipes) also enables AI for
+unknown names. It processes existing recipes in pages and can be rerun after AI becomes available.
+A manual aisle move updates the catalogue with origin `user` without calling a model. The MCP
+`set_ingredient` correction re-resolves recipes without AI. User corrections take priority over
+automatic catalogue entries.
+
+Classification requires `ANTHROPIC_API_KEY`. Without a key, during a recorded outage, or after a
+model failure, unknown names keep a rule-derived base under **Other**. The resolver does not store
+that fallback as a learned catalogue entry, so later recipe saves or backfill runs can retry.
+Credit exhaustion or a rejected key pauses AI calls for one hour. Unknown ingredients can delay
+a save while the server waits for the model, with a 20-second timeout per batch.
+
+Shopping rows that already carry a fallback base and aisle skip later classification. They do not
+automatically retry when AI recovers. The recipe backfill does not enrich existing shopping rows.
+
+This classifier is separate from the model that extracts a recipe from a URL. Saving the imported
+recipe runs ingredient resolution after extraction.
 
 ## Architecture
 
@@ -47,7 +95,7 @@ Storage:
 
 | binding | type | holds |
 |---|---|---|
-| `DB` | D1 | recipes, ratings, comments, shopping items, revisions, link-import log |
+| `DB` | D1 | recipes, ratings, comments, shopping items, revisions, link-import log, ingredient catalogue, aisle order |
 | `COVERS` | R2 | cover images, keyed by content hash |
 | `OAUTH_KV` | KV | MCP OAuth clients, grants and tokens |
 

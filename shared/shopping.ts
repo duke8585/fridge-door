@@ -1,3 +1,4 @@
+import { completeAisleOrder, resolveLocal, EMPTY_CATALOGUE, type Aisle, type Catalogue } from "./catalogue";
 import type { Ingredient, ShoppingItem } from "./schema";
 
 /**
@@ -25,7 +26,9 @@ function sameItem(a: ShoppingItem, b: ShoppingItem): boolean {
     a.item === b.item &&
     a.qty === b.qty &&
     a.qtyMax === b.qtyMax &&
-    a.unit === b.unit
+    a.unit === b.unit &&
+    a.base === b.base &&
+    a.aisle === b.aisle
   );
 }
 
@@ -40,44 +43,75 @@ export function nextTimestamp(prev?: string, now: Date = new Date()): string {
   return new Date(Math.max(t, p + 1)).toISOString();
 }
 
-export const groupKey = (item: string): string => item.trim().toLowerCase().replace(/\s+/g, " ");
-
 export type ShoppingGroup = {
+  /** The base: "red apple" and "apples" are one group, "apple". */
   key: string;
-  label: string;
+  aisle: Aisle;
   lines: ShoppingItem[];
   allChecked: boolean;
 };
 
-/** Group live (non-deleted) items by normalized name. Unchecked groups first, then alphabetical. */
-export function groupShopping(items: Iterable<ShoppingItem>): ShoppingGroup[] {
-  const groups = new Map<string, ShoppingGroup>();
+/**
+ * The base and aisle a row is grouped under. Rows carry them since the catalogue exists; older rows
+ * and rows typed in offline that the local catalogue did not know are looked up in `cat` meanwhile.
+ */
+export function placeOf(it: ShoppingItem, cat: Catalogue = EMPTY_CATALOGUE): { base: string; aisle: Aisle } {
+  const local = it.base && it.aisle ? null : resolveLocal(cat, it.item);
+  const base = it.base ?? local!.base;
+  return { base, aisle: it.aisle ?? cat.aisles.get(base) ?? local?.aisle ?? "other" };
+}
+
+/**
+ * Group live (non-deleted) items by base. Unchecked groups first, then alphabetical. A group's aisle
+ * is that of its most recently written line, so a move shows at once even before every line synced.
+ */
+export function groupShopping(items: Iterable<ShoppingItem>, cat: Catalogue = EMPTY_CATALOGUE): ShoppingGroup[] {
+  const groups = new Map<string, ShoppingGroup & { at: string }>();
   for (const it of items) {
     if (it.deleted) continue;
-    const key = groupKey(it.item);
-    let g = groups.get(key);
+    const { base, aisle } = placeOf(it, cat);
+    let g = groups.get(base);
     if (!g) {
-      g = { key, label: it.item.trim(), lines: [], allChecked: true };
-      groups.set(key, g);
+      g = { key: base, aisle, lines: [], allChecked: true, at: it.updated_at };
+      groups.set(base, g);
+    }
+    if (it.updated_at > g.at) {
+      g.at = it.updated_at;
+      g.aisle = aisle;
     }
     g.lines.push(it);
     if (!it.checked) g.allChecked = false;
   }
-  const out = [...groups.values()];
+  const out = [...groups.values()].map(({ at: _, ...g }) => g);
   for (const g of out) g.lines.sort((a, b) => (a.recipe_title ?? "").localeCompare(b.recipe_title ?? ""));
   return out.sort((a, b) => Number(a.allChecked) - Number(b.allChecked) || a.key.localeCompare(b.key));
 }
 
-/** Build shopping rows from (already scaled) ingredients. Unscalable items come along without qty. */
+export type AisleSection = { aisle: Aisle; groups: ShoppingGroup[] };
+
+/** The groups under their aisles, in the household order (`order` is completed, so every aisle has a place). Empty aisles are left out. */
+export function byAisle(groups: readonly ShoppingGroup[], order: readonly string[] | undefined): AisleSection[] {
+  return completeAisleOrder(order)
+    .map((aisle) => ({ aisle, groups: groups.filter((g) => g.aisle === aisle) }))
+    .filter((s) => s.groups.length > 0);
+}
+
+/**
+ * Build shopping rows from (already scaled) ingredients. Unscalable items come along without qty.
+ * Each row carries the ingredient's base and, when the catalogue knows the base, its aisle.
+ */
 export function ingredientsToShopping(
   ingredients: readonly Ingredient[],
   recipe: { id: string; title: string },
   makeId: () => string,
   now: string,
+  cat: Catalogue = EMPTY_CATALOGUE,
 ): ShoppingItem[] {
   return ingredients.map((ing) => ({
     id: makeId(),
     item: ing.item,
+    base: ing.base,
+    aisle: ing.base ? cat.aisles.get(ing.base) : undefined,
     qty: ing.qty,
     qtyMax: ing.qtyMax,
     unit: ing.unit,

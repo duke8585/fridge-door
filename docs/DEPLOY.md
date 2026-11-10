@@ -107,8 +107,8 @@ Secrets are set per environment and never live in the repository.
 | `SESSION_SECRET` | yes | HMAC key for the session and OAuth state cookies. Rotating it logs everyone out |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for Google login | from step 4 |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | for GitHub login | from step 4 |
-| `IMPORT_TOKEN` | for `npm run load-import` | bearer token accepted only on `PUT /api/import/:ref` and `PUT /api/recipes/:id/cover`, acting as `max` |
-| `ANTHROPIC_API_KEY` | optional | link import with Claude. Without it, link import still works: schema.org Recipe data is mapped field by field, other pages become stubs |
+| `IMPORT_TOKEN` | for `npm run load-import` and the base backfill | bearer token accepted only on `PUT /api/import/:ref`, `PUT /api/recipes/:id/cover` and `PUT /api/catalogue/backfill`, acting as `max` |
+| `ANTHROPIC_API_KEY` | optional | link import with Claude, and Claude Haiku for ingredient names the catalogue does not know. Without it, link import still works (schema.org Recipe data is mapped field by field, other pages become stubs) and unknown ingredients get a rule-based base in aisle "other" |
 
 Production:
 
@@ -215,6 +215,22 @@ worker updates.
   URLs, Safari web pages and Text, with the actions Get URLs from Shortcut Input, Get Item from List
   (First Item), URL Encode, Text `https://<your domain>/import?url=` followed by the encoded URL,
   and Open URLs.
+
+## Ingredient bases for existing recipes
+
+Migrations 0008 and 0009 add the ingredient catalogue with a starter set and its change generation. Apply both before deploying this worker. Recipes saved before it have no
+bases until they are saved again. The backfill resolves every recipe's ingredients (Haiku for names
+the catalogue does not know, when `ANTHROPIC_API_KEY` is set) and writes only the bases, without a
+revision and without changing `updated_at`:
+
+```sh
+curl -X PUT -H "Authorization: Bearer <IMPORT_TOKEN of that env>" https://<your domain>/api/catalogue/backfill
+```
+
+It is idempotent: rerun it after a key was added or the credits were topped up, and it converges on
+the new answers. It answers `{ recipes, updated, items, unknown, nextCursor }`. Each request processes at most 50 recipes. Repeat with `?cursor=<URL-encoded nextCursor>` until `nextCursor` is null; restart without a cursor after enabling AI or correcting aliases. `unknown` counts the names that
+kept a rule-based base. Review what the model added with the MCP tool `list_ingredients` (origin
+`auto`) and correct it with `set_ingredient`.
 
 ## Loading recipes in bulk
 

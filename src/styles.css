@@ -23,13 +23,13 @@
   /* The two crops a cover is shown in. The editor previews use the same values. */
   --thumb-aspect: 4 / 5;
   --cover-aspect: 16 / 9;
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.45;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
+:root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #1c1917;
     --fg: #f5f5f4;
     --muted: #a8a29e;
@@ -46,7 +46,6 @@
     --g-status: #d6d3d1;
     --g-todo: #fca5a5;
     --g-duration: #a5b4fc;
-  }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); -webkit-tap-highlight-color: transparent; }
@@ -95,11 +94,23 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* header */
 .app-header {
   position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; gap: 0.5rem;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
   padding: 0.5rem 0.75rem; padding-top: max(0.5rem, env(safe-area-inset-top));
   background: var(--bg); border-bottom: 1px solid var(--line);
 }
 .brand { font-weight: 700; text-decoration: none; color: var(--fg); margin-right: auto; font-size: 1.1rem; }
+.header-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2.75rem; height: 2.75rem; padding: 0.5rem; color: var(--fg); text-decoration: none; }
+.header-icon svg { width: 1.25rem; height: 1.25rem; }
+.app-header .who button { min-height: 2.75rem; }
+.app-header .cart { min-width: 2.75rem; min-height: 2.75rem; }
+@media (max-width: 30rem) {
+  .app-header { gap: 0.25rem; }
+  .app-header .brand { flex-basis: calc(100% - 6rem); }
+  .app-header .sync { order: 1; margin-right: auto; }
+  .app-header .who { order: 2; }
+  .app-header .cart { order: 3; }
+  .app-header .sync-rejected { order: 4; }
+}
 .app-header .who { display: inline-flex; align-items: center; gap: 0.2rem; }
 .sync { font-size: 0.75rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.3rem; }
 .sync i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--ok); display: inline-block; }
@@ -217,7 +228,40 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* shopping */
 .shopping { display: grid; gap: 0.5rem; }
 .add-free { display: flex; gap: 0.5rem; }
+.aisles { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
+.aisle { --aisle-color: #c6c1b9; }
+.aisle[data-aisle="produce"] { --aisle-color: #a8c99b; }
+.aisle[data-aisle="bakery"] { --aisle-color: #d9bc94; }
+.aisle[data-aisle="grains"] { --aisle-color: #d7c88e; }
+.aisle[data-aisle="baking"] { --aisle-color: #d7b3a0; }
+.aisle[data-aisle="spices"] { --aisle-color: #dfa987; }
+.aisle[data-aisle="oils-sauces"] { --aisle-color: #c3c58d; }
+.aisle[data-aisle="canned"] { --aisle-color: #a7bfae; }
+.aisle[data-aisle="international"] { --aisle-color: #c0aed1; }
+.aisle[data-aisle="sweets-snacks"] { --aisle-color: #d8acc5; }
+.aisle[data-aisle="drinks"] { --aisle-color: #9bc9c8; }
+.aisle[data-aisle="dairy"] { --aisle-color: #b3c5df; }
+.aisle[data-aisle="meat-fish"] { --aisle-color: #d7a5a1; }
+.aisle[data-aisle="frozen"] { --aisle-color: #9ec9df; }
+.aisle[data-aisle="household"] { --aisle-color: #b9b6d0; }
+.aisle[data-aisle="other"] { --aisle-color: #c6c1b9; }
+.aisle-head { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0; }
+.aisle-select { margin: 0 0 0.4rem 2rem; }
+.aisle-order { padding-left: 1.5rem; margin: 0; }
+.aisle-order li { display: flex; align-items: center; gap: 0.4rem; }
+.aisle-order li span { flex: 1; }
 .groups { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.25rem; }
+.aisle > .groups {
+  position: relative; margin-top: 0.35rem; padding: 0.2rem 0.35rem 0.2rem 0.75rem;
+  border-left: 3px solid var(--aisle-color);
+  background: color-mix(in srgb, var(--aisle-color) 7%, transparent);
+}
+.aisle > .groups::before, .aisle > .groups::after {
+  content: ""; position: absolute; left: -3px; width: 0.65rem;
+  border-top: 3px solid var(--aisle-color); pointer-events: none;
+}
+.aisle > .groups::before { top: 0; }
+.aisle > .groups::after { bottom: 0; }
 .group { border-bottom: 1px solid var(--line); padding: 0.35rem 0; }
 .group-head { display: flex; align-items: center; gap: 0.6rem; min-height: 2.5rem; font-weight: 600; }
 .group-label { flex: 1; }

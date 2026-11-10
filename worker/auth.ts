@@ -44,8 +44,8 @@ export type AuthEnv = {
 };
 
 export const PUBLIC_PATHS: ReadonlySet<string> = new Set(["/manifest.webmanifest", "/icon.svg", "/favicon.ico"]);
-/** The loader (scripts/load-import.ts) may use `Authorization: Bearer <IMPORT_TOKEN>` here, acting as max. */
-const BEARER_ROUTES: readonly RegExp[] = [/^\/api\/import\/[^/]+$/, /^\/api\/recipes\/[^/]+\/cover$/];
+/** The loader (scripts/load-import.ts) and the base backfill may use `Authorization: Bearer <IMPORT_TOKEN>` here, acting as max. */
+const BEARER_ROUTES: readonly RegExp[] = [/^\/api\/import\/[^/]+$/, /^\/api\/recipes\/[^/]+\/cover$/, /^\/api\/catalogue\/backfill$/];
 export const IMPORT_USER: User = "max";
 
 const NO_STORE = { "cache-control": "no-store" };

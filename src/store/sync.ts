@@ -1,8 +1,11 @@
+import type { AisleOrder } from "../../shared/catalogue";
 import type { ShoppingItem, ShoppingSyncResponse } from "../../shared/schema";
 import { upgradeTag } from "../../shared/tags";
 import { api, ApiError, AuthError, NetworkError } from "../lib/api";
 import { signal } from "../lib/signal";
 import { refreshUser } from "../lib/user";
+import { applyRemoteAisleOrder } from "./aisles";
+import { refreshCatalogue } from "./catalogue";
 import { kvGet, kvSet, type QueuedOp } from "./idb";
 import { allOps, onEnqueue, refreshPending, removeOps } from "./outbox";
 import { refreshOpenRecipes } from "./recipes";
@@ -55,9 +58,10 @@ async function syncOnce(): Promise<void> {
   syncStatus.update((s) => ({ ...s, syncing: true }));
   try {
     const ops = await allOps();
-    await pushShoppingAndPull(ops.filter((o) => o.kind === "shopping"));
+    const listOp = (o: QueuedOp): boolean => o.kind === "shopping" || o.kind === "aisle.order";
+    await pushShoppingAndPull(ops.filter(listOp));
     for (const op of ops) {
-      if (op.kind !== "shopping") await pushOne(op);
+      if (!listOp(op)) await pushOne(op);
     }
     syncStatus.set({ online: true, syncing: false, lastOkAt: new Date().toISOString() });
   } catch (e) {
@@ -67,14 +71,21 @@ async function syncOnce(): Promise<void> {
   }
 }
 
-/** One round trip: send latest local version of each queued item, receive everything since our cursor. */
+/**
+ * One round trip: send the latest local version of each queued item and the latest aisle reorder,
+ * receive everything since our cursor, the aisle order and the catalogue version.
+ */
 async function pushShoppingAndPull(ops: QueuedOp[]): Promise<void> {
   const latest = new Map<string, ShoppingItem>();
-  for (const op of ops) if (op.kind === "shopping") latest.set(op.item.id, op.item);
+  let order: AisleOrder | undefined;
+  for (const op of ops) {
+    if (op.kind === "shopping") latest.set(op.item.id, op.item);
+    if (op.kind === "aisle.order") order = op.order;
+  }
   const since = (await kvGet<number>("shoppingRev")) ?? 0;
   let res: ShoppingSyncResponse;
   try {
-    res = await api<ShoppingSyncResponse>("/shopping/sync", { method: "POST", json: { items: [...latest.values()], since } });
+    res = await api<ShoppingSyncResponse>("/shopping/sync", { method: "POST", json: { items: [...latest.values()], since, aisle_order: order } });
   } catch (e) {
     if (e instanceof ApiError && e.status === 400) {
       // A bad row would block the queue forever; drop the batch and report it in the header.
@@ -87,6 +98,9 @@ async function pushShoppingAndPull(ops: QueuedOp[]): Promise<void> {
   await removeOps(ops.map((o) => o.seq!));
   await applyRemoteShopping(res.items);
   await kvSet("shoppingRev", res.rev);
+  await applyRemoteAisleOrder(res.aisle_order);
+  // a failed catalogue fetch is retried on the next poll; it says nothing about the list sync
+  if (res.catalogue_version) await refreshCatalogue(res.catalogue_version).catch((e: unknown) => console.warn("catalogue refresh failed", e));
 }
 
 async function pushOne(op: QueuedOp): Promise<void> {
@@ -110,6 +124,9 @@ async function pushOne(op: QueuedOp): Promise<void> {
       case "comment.delete":
         await api(`/comments/${op.id}`, { method: "DELETE" });
         break;
+      case "catalogue.aisle":
+        await api(`/catalogue/bases/${encodeURIComponent(op.base)}`, { method: "PUT", json: { aisle: op.aisle, updated_at: op.updated_at ?? "1970-01-01T00:00:00.000Z" } });
+        break;
     }
   } catch (e) {
     // 4xx = server will never accept it: drop and report. Network/5xx/401 (login expired): keep and stop this round.
@@ -131,6 +148,8 @@ function describeOp(op: QueuedOp): string {
       return "Comment";
     case "comment.delete":
       return "Comment delete";
+    case "catalogue.aisle":
+      return "Aisle move";
     default:
       return "Change";
   }

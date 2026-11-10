@@ -9,6 +9,7 @@ import { z } from "zod";
 import styleGuide from "../import/NORMALIZE.md?raw";
 import { RecipeInputSchema } from "../shared/schema";
 import { CONTENT_GROUPS, fixedTags, isFixedGroup, vocabularyLines } from "../shared/tags";
+import { strictSchema } from "./ai";
 import { DraftSchema, draftProblems, type Draft } from "./ingest";
 
 export const IMPORT_MODEL = "claude-sonnet-5-5";
@@ -26,21 +27,6 @@ const ToolInputSchema = z.object({
   recipe: RecipeInputSchema.omit({ source_url: true }).extend({ tags: z.array(z.enum(IMPORT_TAGS as [string, ...string[]])) }),
   review_notes: z.array(z.string()),
 });
-
-/** Keywords strict tool schemas accept. Length, range and count limits are checked by zod and the lint instead. */
-const STRICT_KEYS = new Set(["type", "properties", "required", "items", "enum", "const", "anyOf", "description", "format"]);
-
-export function strictSchema(node: unknown): unknown {
-  if (Array.isArray(node)) return node.map(strictSchema);
-  if (typeof node !== "object" || node === null) return node;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(node)) {
-    if (k === "properties") out[k] = Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([p, s]) => [p, strictSchema(s)]));
-    else if (STRICT_KEYS.has(k)) out[k] = strictSchema(v);
-  }
-  if (out.type === "object") out.additionalProperties = false;
-  return out;
-}
 
 const RECORD_TOOL: Anthropic.Beta.BetaTool = {
   name: TOOL_NAME,

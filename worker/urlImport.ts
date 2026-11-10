@@ -10,6 +10,7 @@ import { z } from "zod";
 import { findDuplicates, stripTracking } from "../shared/duplicates";
 import { toFieldErrors, type ValidationErrorBody } from "../shared/schema";
 import type { AiUnavailable, UrlImportDraft, UrlImportError, UrlImportSaved, UrlImportStatus } from "../shared/urlImport";
+import { aiState, noteOutage } from "./ai";
 import type { Env } from "./app";
 import { storeCover } from "./covers";
 import { extractPage, str, type Extraction, type PageMeta } from "./extract";
@@ -25,8 +26,6 @@ type Ctx = Context<Env>;
 export const IMPORTS_PER_HOUR = 20;
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-/** How long a credits or key outage skips the model before trying it again. */
-export const OUTAGE_MS = HOUR_MS;
 /** Notes at least this long are treated as the recipe text when the page itself has none. */
 const NOTES_AS_RECIPE_CHARS = 150;
 const SOCIAL_HOSTS = ["instagram.com", "tiktok.com", "youtube.com", "youtu.be", "facebook.com", "fb.watch"];
@@ -48,28 +47,6 @@ const isSocial = (url: URL): boolean => {
   const host = url.hostname.toLowerCase();
   return SOCIAL_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
 };
-
-/**
- * Credits used up: 402 billing_error, the spend-limit error code, or the 400 "credit balance is
- * too low" invalid_request_error. Key rejected: 401/403. Anything else is not an outage.
- */
-export function classifyOutage(e: unknown): Exclude<AiUnavailable, "not_configured"> | null {
-  if (!(e instanceof Anthropic.APIError)) return null;
-  const message = e.apiMessage ?? e.message;
-  if (e.status === 402 || e.type === "billing_error" || e.errorCode === "enforced_spend_limit_reached") return "credits_exhausted";
-  if (e.status === 400 && /credit balance/i.test(message)) return "credits_exhausted";
-  if (e.status === 401 || e.status === 403 || e.type === "authentication_error" || e.type === "permission_error") return "key_rejected";
-  return null;
-}
-
-type AiState = { ok: true; apiKey: string } | { ok: false; reason: AiUnavailable; until: string | null };
-
-async function aiState(env: Env["Bindings"], now: Date): Promise<AiState> {
-  const apiKey = env.ANTHROPIC_API_KEY?.trim();
-  if (!apiKey) return { ok: false, reason: "not_configured", until: null };
-  const outage = await repo.getAiOutage(env.DB, now.toISOString());
-  return outage ? { ok: false, ...outage } : { ok: true, apiKey };
-}
 
 export async function importStatus(c: Ctx): Promise<Response> {
   const now = new Date();
@@ -141,12 +118,9 @@ export async function importFromUrl(c: Ctx): Promise<Response> {
   try {
     result = await draftRecipe(client, { sourceUrl, kind, content, title: meta.title, notes });
   } catch (e) {
-    const outage = classifyOutage(e);
+    const outage = await noteOutage(c.env, e, now);
     console.error(JSON.stringify({ event: "url_import_model_error", outage, status: e instanceof Anthropic.APIError ? e.status : null, type: e instanceof Anthropic.APIError ? e.type : null }));
-    if (outage) {
-      await repo.setAiOutage(c.env.DB, { reason: outage, until: new Date(now.getTime() + OUTAGE_MS).toISOString() });
-      return withoutAi(outage);
-    }
+    if (outage) return withoutAi(outage);
     const why = e instanceof Anthropic.RateLimitError ? "the model is busy" : e instanceof Anthropic.APIError ? `HTTP ${e.status ?? "error"}` : "no answer";
     return errorJson(c, { error: "model_failed", message: `The model could not write the draft (${why}). Try again in a minute.` }, 502);
   }
@@ -210,7 +184,7 @@ export async function saveImported(c: Ctx): Promise<Response> {
   const { confirm_duplicate, cover_url, ...draft } = body.data;
   const user = c.get("user");
   const now = new Date().toISOString();
-  const result = await ingestRecipe(c.env.DB, draft, { author: user, source: "url-import", confirmDuplicate: confirm_duplicate, now });
+  const result = await ingestRecipe(c.env, draft, { author: user, source: "url-import", confirmDuplicate: confirm_duplicate, now });
   if (!result.ok && result.reason === "problems") {
     return errorJson(c, { error: "problems", message: "The recipe does not follow the style guide yet.", problems: result.problems }, 422);
   }

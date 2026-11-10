@@ -4,6 +4,7 @@
  * runtime-specific imports so both tsconfigs can include it.
  */
 import { z } from "zod";
+import { AISLE_IDS, completeAisleOrder, type AisleOrder } from "./catalogue";
 import { METRIC_UNITS, USERS } from "./constants";
 import { tagProblem, upgradeTag } from "./tags";
 
@@ -25,6 +26,8 @@ export const IngredientSchema = z
     unit: MetricUnitSchema.optional(),
     prep: z.string().trim().max(120).optional(),
     note: z.string().trim().max(120).optional(),
+    /** The canonical base (shared/catalogue.ts). Set by the server from `item` on every save; a writer's value is ignored. */
+    base: z.string().trim().max(60).optional(),
   })
   .superRefine((ing, ctx) => {
     if (ing.qtyMax !== undefined && ing.qty === undefined) {
@@ -118,12 +121,13 @@ export type Recipe = RecipeInput & {
   source_ref?: string;
 };
 
-/** `ingredients` (item names) and `notes_md` are there for the list's search. */
+/** `ingredients` (item names), `bases` and `notes_md` are there for the list's search. `bases` is missing in summaries cached by older builds. */
 export type RecipeSummary = {
   id: string;
   title: string;
   tags: string[];
   ingredients: string[];
+  bases?: string[];
   notes_md: string;
   yield?: Yield;
   time?: Time;
@@ -184,18 +188,30 @@ export const ShoppingItemSchema = z.object({
   unit: MetricUnitSchema.optional(),
   recipe_id: z.string().max(64).optional(),
   recipe_title: z.string().max(140).optional(),
+  /** Base and aisle from the catalogue when the item was added. Older clients send neither; the server fills them in. */
+  base: z.string().trim().min(1).max(60).optional(),
+  aisle: z.enum(AISLE_IDS).optional().catch(undefined),
   checked: z.boolean(),
   deleted: z.boolean().optional(),
   updated_at: z.iso.datetime(),
 });
 export type ShoppingItem = z.infer<typeof ShoppingItemSchema>;
 
+/** The household's aisle order. Unknown aisle ids are dropped and missing ones appended, so any order is valid. */
+export const AisleOrderSchema = z.object({
+  order: z.array(z.string().max(40)).max(50).transform(completeAisleOrder),
+  updated_at: z.iso.datetime(),
+});
+
+/** `aisle_order`: a local reorder, last-write-wins on updated_at. Older clients send none. */
 export const ShoppingSyncRequestSchema = z.object({
   items: z.array(ShoppingItemSchema).max(500),
   since: z.number().int().min(0),
+  aisle_order: AisleOrderSchema.optional(),
 });
 export type ShoppingSyncRequest = z.infer<typeof ShoppingSyncRequestSchema>;
-export type ShoppingSyncResponse = { items: ShoppingItem[]; rev: number };
+/** `aisle_order` is null until someone reorders. `catalogue_version` tells the client when to refetch /api/catalogue. */
+export type ShoppingSyncResponse = { items: ShoppingItem[]; rev: number; aisle_order: AisleOrder | null; catalogue_version: string };
 
 export type FieldErrors = Record<string, string>;
 export type ValidationErrorBody = { error: "validation"; fields: FieldErrors };

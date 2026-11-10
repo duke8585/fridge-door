@@ -1,6 +1,8 @@
+import type { Aisle } from "../../shared/catalogue";
 import type { ShoppingItem } from "../../shared/schema";
-import { groupKey, mergeRemote, nextTimestamp } from "../../shared/shopping";
+import { mergeRemote, nextTimestamp, placeOf } from "../../shared/shopping";
 import { signal } from "../lib/signal";
+import { catalogue, setLocalAisle } from "./catalogue";
 import { db } from "./idb";
 import { enqueue } from "./outbox";
 
@@ -36,9 +38,20 @@ export function toggleItem(id: string): Promise<void> {
   return i ? writeLocal([touch(i, { checked: !i.checked })]) : Promise.resolve();
 }
 
-export function setGroupChecked(key: string, checked: boolean): Promise<void> {
-  const items = [...shopping.get().values()].filter((i) => !i.deleted && groupKey(i.item) === key && i.checked !== checked);
-  return writeLocal(items.map((i) => touch(i, { checked })));
+const groupLines = (base: string): ShoppingItem[] => [...shopping.get().values()].filter((i) => !i.deleted && placeOf(i, catalogue.get()).base === base);
+
+export function setGroupChecked(base: string, checked: boolean): Promise<void> {
+  return writeLocal(groupLines(base).filter((i) => i.checked !== checked).map((i) => touch(i, { checked })));
+}
+
+/**
+ * Move a group to another aisle: its lines move now (synced like any edit), and the catalogue learns
+ * it as a user entry, so the next item with this base lands there too.
+ */
+export async function moveToAisle(base: string, aisle: Aisle): Promise<void> {
+  setLocalAisle(base, aisle);
+  await writeLocal(groupLines(base).map((i) => touch(i, { base, aisle })));
+  await enqueue({ kind: "catalogue.aisle", base, aisle, updated_at: new Date().toISOString() });
 }
 
 export function removeItem(id: string): Promise<void> {

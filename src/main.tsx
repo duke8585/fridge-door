@@ -1,13 +1,15 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { loadAisleOrder } from "./store/aisles";
+import { loadCatalogue } from "./store/catalogue";
 import { loadShopping } from "./store/shopping";
 import { startSync } from "./store/sync";
 import "./styles.css";
 
 // Local first: hydrate from IndexedDB before the first paint that needs it,
 // then start the outbox/poll loop. The UI never waits on the network.
-void loadShopping().then(startSync);
+void Promise.all([loadShopping(), loadCatalogue(), loadAisleOrder()]).then(startSync);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

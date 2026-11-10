@@ -183,7 +183,7 @@ function upsertRecipeStmt(db: D1Database, id: string, input: RecipeInput, now: s
 /** False when `expectedUpdatedAt` is given and the row changed since (nothing is written then). */
 export async function upsertRecipe(db: D1Database, id: string, input: RecipeInput, change: ContentChange, expectedUpdatedAt?: string): Promise<boolean> {
   const [res] = await writeContent(db, id, change, [upsertRecipeStmt(db, id, input, change.now, expectedUpdatedAt)]);
-  return res!.meta.changes === 1;
+  return res!.meta.changes > 0;
 }
 
 function slugify(title: string): string {
@@ -406,7 +406,7 @@ export async function setCoverFocus(db: D1Database, id: string, focus: CoverFocu
     .prepare("UPDATE recipes SET cover_focus_x = ?, cover_focus_y = ?, cover_focus_by = ?, updated_at = ? WHERE id = ?")
     .bind(focus?.x ?? null, focus?.y ?? null, by, now, id)
     .run();
-  return res.meta.changes === 1;
+  return res.meta.changes > 0;
 }
 
 export async function recipeExists(db: D1Database, id: string): Promise<boolean> {
@@ -433,7 +433,7 @@ export async function updateTags(
       .prepare("UPDATE recipes SET tags_json = ?, updated_at = ? WHERE id = ? AND tags_json = ?")
       .bind(nextJson, change.now, id, row.tags_json);
     const [res] = await writeContent(db, id, change, [cas]);
-    if (res!.meta.changes === 1) return next;
+    if (res!.meta.changes > 0) return next;
   }
   throw new Error("tag update kept conflicting, try again");
 }
@@ -658,7 +658,7 @@ export async function allSections(db: D1Database, cursor = "", limit = 50): Prom
  */
 export async function setSectionBases(db: D1Database, id: string, before: string, after: string): Promise<boolean> {
   const res = await db.prepare("UPDATE recipes SET sections_json = ? WHERE id = ? AND sections_json = ?").bind(after, id, before).run();
-  return res.meta.changes === 1;
+  return res.meta.changes > 0;
 }
 
 // ---------- household settings ----------

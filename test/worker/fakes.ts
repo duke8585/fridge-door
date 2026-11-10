@@ -24,7 +24,10 @@ class FakeStatement {
     return { results: this.db.prepare(this.sql).all(...this.params) as T[] };
   }
   async run(): Promise<{ meta: { changes: number } }> {
-    return { meta: { changes: Number(this.db.prepare(this.sql).run(...this.params).changes) } };
+    const before = Number(this.db.prepare("SELECT total_changes() AS n").get()!.n);
+    this.db.prepare(this.sql).run(...this.params);
+    const after = Number(this.db.prepare("SELECT total_changes() AS n").get()!.n);
+    return { meta: { changes: after - before } };
   }
 }
 
@@ -43,7 +46,10 @@ export function fakeD1(migrationsDir: string, opts: { before?: string } = {}): {
         const out = stmts.map((s) => {
           const st = sqlite.prepare(s.sql);
           if (st.columns().length > 0) return { results: st.all(...s.params), meta: { changes: 0 } };
-          return { results: [], meta: { changes: Number(st.run(...s.params).changes) } };
+          const before = Number(sqlite.prepare("SELECT total_changes() AS n").get()!.n);
+          st.run(...s.params);
+          const after = Number(sqlite.prepare("SELECT total_changes() AS n").get()!.n);
+          return { results: [], meta: { changes: after - before } };
         });
         sqlite.exec("COMMIT");
         return out;

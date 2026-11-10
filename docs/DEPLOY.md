@@ -3,6 +3,27 @@
 This guide takes a fresh Cloudflare account to a running app: production on a custom domain and an
 optional staging copy on workers.dev. All commands run from the repository root.
 
+## 0. Prerequisites
+
+- A Cloudflare account. The Workers free plan is enough for D1, KV and workers.dev; R2 needs to be
+  enabled once in the dashboard (it has a free tier, but asks for a payment method).
+- Node 22 or newer and npm. Wrangler comes with `npm ci`, so no global install is needed.
+- At least one login provider: a Google Cloud project or a GitHub account for the OAuth app.
+- Optional: an Anthropic API key for AI link import and ingredient classification.
+- Optional: a domain whose DNS zone is on the same Cloudflare account.
+
+Try it locally first (see "Local development" in the README): it needs none of the above except
+Node.
+
+### Before you fork
+
+- Users: the app has exactly two fixed users, `max` and `partner` (`USERS` in
+  `shared/constants.ts`). Rename them there and in the allowlists if you like; the ids are stored on
+  ratings, comments and revisions, so do it before you have data.
+- The header links to this repository (`src/components/Header.tsx`); point it at your fork or drop it.
+- Migrations 0006 and 0007 were data migrations for the original library (tag renames, diet tags
+  by recipe id). On a fresh database they find nothing to change, so keep them in the sequence.
+
 `wrangler.jsonc` holds your account's ids and allowlists and is gitignored. You create it from
 `wrangler.example.jsonc` in step 2. The top level of that file is production, `env.stg` is
 staging. Wrangler does not inherit vars or bindings into an env, so `env.stg` repeats all of them.
@@ -156,6 +177,9 @@ npm run db:seed:stg         # staging
 The seed adds four recipes with ratings and comments. It uses `INSERT OR IGNORE`, so rerunning it
 neither fails nor overwrites edits.
 
+The seed recipes carry no ingredient bases. Run the backfill (see "Ingredient bases" below) once
+after deploying, or they get bases the next time each is saved.
+
 ## 8. Deploy
 
 ```sh
@@ -216,10 +240,27 @@ worker updates.
   (First Item), URL Encode, Text `https://<your domain>/import?url=` followed by the encoded URL,
   and Open URLs.
 
-## Ingredient bases for existing recipes
+## Updating a deployment
 
-Migrations 0008 and 0009 add the ingredient catalogue with a starter set and its change generation. Apply both before deploying this worker. Recipes saved before it have no
-bases until they are saved again. The backfill resolves every recipe's ingredients (Haiku for names
+```sh
+git pull
+npm ci
+npm test
+npm run db:migrate:stg && npm run deploy:stg    # try staging first
+npm run db:migrate:remote && npm run deploy     # then production
+```
+
+Always apply migrations before deploying the Worker that needs them. The migrations so far keep
+the schema backward compatible, so a Worker that is one version behind keeps working against it. Before a
+risky migration, note a D1 restore point with `npx wrangler d1 time-travel info <database> -c wrangler.jsonc`.
+
+Clients update themselves: the service worker fetches the new build and the next page load uses
+it. Older clients and their offline queues keep syncing, since new fields are optional.
+
+## Ingredient bases
+
+Migrations 0008 and 0009 add the ingredient catalogue with a starter set and its change generation.
+Recipes saved before them (and the demo seed) have no bases until they are saved again. The backfill resolves every recipe's ingredients (Haiku for names
 the catalogue does not know, when `ANTHROPIC_API_KEY` is set) and writes only the bases, without a
 revision and without changing `updated_at`:
 

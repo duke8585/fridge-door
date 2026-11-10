@@ -3,6 +3,15 @@
 A shared recipe box and shopping list for a household of two, built as an installable,
 offline-first web app on Cloudflare Workers.
 
+<p>
+  <img src="docs/screenshots/list.png" width="220" alt="Recipe list with sort buttons and the course filter open, showing counts per tag">
+  <img src="docs/screenshots/recipe.png" width="220" alt="A recipe with servings scaling and the add to shopping list button">
+  <img src="docs/screenshots/shopping.png" width="220" alt="Shopping list grouped by ingredient under aisle headings, with recipe chips">
+  <img src="docs/screenshots/recipe-dark.png" width="220" alt="A recipe in dark mode">
+</p>
+
+The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it).
+
 ## Features
 
 - **Recipes** with structured ingredients in sections, ranges ("2-3 cloves"), markdown steps and

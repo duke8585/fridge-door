@@ -169,15 +169,17 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                     )}
                     {showLines && (
                       <ul className="lines">
-                        {g.lines.map((l) => (
+                        {g.lines.map((l) => {
+                          const amount = [formatQty(l.qty, l.qtyMax, l.unit), differs(l.item) ? l.item : ""].filter(Boolean).join(" ");
+                          return (
                           <li key={l.id} className={l.checked ? "line done" : "line"}>
                             <label>
                               <input type="checkbox" checked={l.checked} onChange={() => void toggleItem(l.id)} />
                               <span>
-                                {[formatQty(l.qty, l.qtyMax, l.unit), differs(l.item) ? l.item : ""].filter(Boolean).join(" ") || "-"}
+                                {amount || (l.recipe_title ? "" : "-")}
                                 {l.recipe_title && (
                                   <>
-                                    {" - "}
+                                    {amount && " - "}
                                     {l.recipe_id ? (
                                       <Link href={`/recipes/${l.recipe_id}`} onClick={onNavigate}>
                                         {l.recipe_title}
@@ -193,7 +195,8 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                               ×
                             </button>
                           </li>
-                        ))}
+                          );
+                        })}
                       </ul>
                     )}
                   </li>

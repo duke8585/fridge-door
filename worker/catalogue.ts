@@ -42,6 +42,7 @@ export const CLASSIFY_SYSTEM = `You sort ingredient names from recipes into the 
 
 For every item give:
 - base: the generic ingredient a shopper looks for. English, lowercase, last word singular. Drop variety, brand, colour, size, ripeness, freshness and preparation, unless they change what you buy: "Granny Smith apples" -> apple, "finely chopped fresh parsley" -> parsley, but brown sugar, smoked paprika, red lentil, coconut milk and ground coriander stay as they are. Reuse a base from the known bases whenever one fits; make a new one only when none does.
+- A base is always a shelf noun, never a temperature, colour or other modifier. For alternatives ("cold or sparkling water") name the shared ingredient ("water"). "frozen X" stays "frozen X" in the frozen aisle. Tap water and ice go to home. Use other only when nothing fits.
 - aisle: where the supermarket shelves the base, one of:
 ${AISLES.map((a) => `  - ${a.id}: ${a.label}`).join("\n")}
 

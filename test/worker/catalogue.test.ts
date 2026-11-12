@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import worker from "../../worker/index";
@@ -133,7 +134,7 @@ describe("every save path stores a base on each ingredient", () => {
     delete env.ANTHROPIC_API_KEY;
     const created = await call<Recipe>("/recipes", json("POST", recipe(["fresh Shiso Leaves"])));
     expect(created.status).toBe(201);
-    expect(bases(created.body)).toEqual(["fresh shiso leaf"]);
+    expect(bases(created.body)).toEqual(["shiso leaf"]);
     expect(entry("shiso leaf")).toBeUndefined();
     expect(sentToClaude).toHaveLength(0);
   });
@@ -261,6 +262,49 @@ describe("correction concurrency regressions", () => {
     const repo = await import("../../worker/repo");
     const cat = buildCatalogue(await repo.loadCatalogue(env.DB as D1Database));
     expect(resolveLocal(cat, "dried parsley").base).toBe("dried parsley");
-    expect(resolveLocal(cat, "unsalted mystery butter").base).toBe("unsalted mystery butter");
+    expect(resolveLocal(cat, "smoked mystery butter").base).toBe("smoked mystery butter");
+  });
+
+  it("places the seeded names the way the shopping list should group them", async () => {
+    const { resolveLocal } = await import("../../shared/catalogue");
+    const repo = await import("../../worker/repo");
+    const cat = buildCatalogue(await repo.loadCatalogue(env.DB as D1Database));
+    const place = (item: string) => {
+      const r = resolveLocal(cat, item);
+      return [r.base, r.aisle];
+    };
+    expect(place("cold or sparkling water")).toEqual(["water", "home"]);
+    expect(place("hot water")).toEqual(["water", "home"]);
+    expect(place("tap water")).toEqual(["water", "home"]);
+    expect(place("ice cubes")).toEqual(["ice", "home"]);
+    expect(place("sparkling water")).toEqual(["sparkling water", "drinks"]);
+    expect(place("granulated stevia")).toEqual(["stevia", "oils-sauces"]);
+    expect(place("stevia powder")).toEqual(["stevia", "oils-sauces"]);
+    expect(place("low fat cottage cheese")).toEqual(["cottage cheese", "dairy"]);
+    expect(place("low carb tortilla")).toEqual(["tortilla", "international"]);
+    expect(place("frozen blueberries")).toEqual(["frozen blueberry", "frozen"]);
+    expect(place("frozen mixed berries")).toEqual(["frozen berry", "frozen"]);
+    expect(resolveLocal(cat, "frozen jackfruit").aisle).toBe("frozen");
+    expect(place("red bell pepper")).toEqual(["bell pepper", "produce"]);
+    expect(place("kalamata olives")).toEqual(["olive", "canned"]);
+    expect(place("white miso")).toEqual(["miso paste", "international"]);
+    expect(place("silken tofu")).toEqual(["tofu", "dairy"]);
+    expect(place("plain flour")).toEqual(["flour", "baking"]);
+    expect(place("self-raising flour")).toEqual(["flour", "baking"]);
+    expect(place("dried wakame")).toEqual(["wakame", "international"]);
+    expect(place("hot sauce")).toEqual(["hot sauce", "oils-sauces"]);
+    expect(place("ice cream")).toEqual(["ice cream", "frozen"]);
+    expect(place("white wine")).toEqual(["white wine", "drinks"]);
+    expect(place("chicken or vegetable stock")).toEqual(["chicken stock", "spices"]);
+    expect(place("butter or margarine")).toEqual(["butter", "dairy"]);
+  });
+
+  it("the aisle migration keeps a base a person moved", () => {
+    const sql = readFileSync(resolve(import.meta.dirname, "../../migrations/0010_catalogue_aisles.sql"), "utf8");
+    sqlite.prepare("UPDATE ingredient_bases SET aisle = 'drinks', origin = 'user' WHERE base = 'water'").run();
+    sqlite.exec("UPDATE ingredient_bases SET aisle = 'drinks', origin = 'seed' WHERE base = 'ice'");
+    sqlite.exec(sql);
+    expect(entry("water")).toEqual({ aisle: "drinks", origin: "user" });
+    expect(entry("ice")).toEqual({ aisle: "home", origin: "seed" });
   });
 });

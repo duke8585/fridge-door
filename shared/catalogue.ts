@@ -22,6 +22,7 @@ export const AISLES = [
   { id: "frozen", label: "Frozen" },
   { id: "household", label: "Household" },
   { id: "other", label: "Other" },
+  { id: "home", label: "Likely at home" },
 ] as const;
 
 export type Aisle = (typeof AISLES)[number]["id"];
@@ -74,17 +75,33 @@ export function singularKey(item: string): string {
 }
 
 /**
- * Words that describe an ingredient without changing what to buy: colour, freshness, size, prep and
- * quality. Kinds that do change it ("brown sugar", "black bean", "ground coriander") are catalogue
- * entries, and the lookup tries the longer name before dropping a word.
+ * Words that describe an ingredient without changing what to buy: temperature, colour, freshness,
+ * size, prep and quality. Kinds that do change it ("brown sugar", "black bean", "ground coriander",
+ * "hot sauce", "red onion", "white wine") are catalogue entries, and the lookup tries the longer
+ * name before dropping a word. Not here, because they change the product: dried, canned, frozen,
+ * smoked, roasted, pickled, cooked, sweet, mixed, instant.
  */
-const DESCRIPTORS = new Set("ripe large small medium chopped diced sliced grated peeled halved quartered shredded cubed julienned finely roughly thinly coarsely drained rinsed trimmed".split(" "));
+const DESCRIPTORS = new Set(
+  ("ripe large small medium chopped diced sliced grated peeled halved quartered shredded cubed julienned finely roughly thinly coarsely drained rinsed trimmed " +
+    "cold hot warm lukewarm boiling chilled fresh freshly organic plain toasted unsalted salted natural very overripe extra virgin granulated powdered liquid ground " +
+    "red green yellow white black").split(" "),
+);
 
-/** The name without notes: "tomatoes, peeled (or canned)" -> "tomatoes", "butter or margarine" -> "butter". */
+/** Diet qualifiers that do not change the ingredient: "low fat cottage cheese", "sugar free jelly". */
+const DIET_QUALIFIER = /\b(?:(?:low|reduced|full|zero|no)[ -](?:fat|carb|sugar|salt|sodium)|(?:fat|sugar|gluten|lactose)[ -]free)\b/g;
+/** "cold or sparkling water": a single word, "or", then a longer name whose last word is shared. */
+const SHARED_NOUN = /^(\p{L}+) or [^,;]+ (\p{L}+)\s*(?:[,;].*)?$/u;
+
+/**
+ * The name without notes: "tomatoes, peeled (or canned)" -> "tomatoes", "butter or margarine" -> "butter",
+ * "cold or sparkling water" -> "cold water", "low fat cottage cheese" -> "cottage cheese".
+ */
 const coreName = (item: string): string =>
   itemKey(item)
     .replace(/\([^)]*\)/g, " ")
+    .replace(SHARED_NOUN, "$1 $2")
     .split(/,|;| or /)[0]!
+    .replace(DIET_QUALIFIER, " ")
     .replace(/[^\p{L}\p{N}' -]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -137,7 +154,7 @@ export const EMPTY_CATALOGUE: Catalogue = { names: new Map(), aisles: new Map() 
 
 export type Resolution = { base: string; aisle: Aisle; how: "alias" | "rule" } | { base: string; aisle: "other"; how: "unknown" };
 
-/** Steps 1 and 2 of the resolution: an exact alias, then the rule candidates. Unknown keeps the rule result. */
+/** Steps 1 and 2 of the resolution: an exact alias, then the rule candidates. An unlisted "frozen X" keeps its name in the frozen aisle; anything else unknown keeps the rule result. */
 export function resolveLocal(cat: Catalogue, item: string): Resolution {
   const [exact, ...rest] = candidateNames(item);
   const aisleOf = (base: string): Aisle => cat.aisles.get(base) ?? "other";
@@ -147,7 +164,9 @@ export function resolveLocal(cat: Catalogue, item: string): Resolution {
     const base = cat.names.get(name);
     if (base) return { base, aisle: aisleOf(base), how: "rule" };
   }
-  return { base: ruleBase(item), aisle: "other", how: "unknown" };
+  const base = ruleBase(item);
+  if (base.startsWith("frozen ")) return { base, aisle: "frozen", how: "rule" };
+  return { base, aisle: "other", how: "unknown" };
 }
 
 /**

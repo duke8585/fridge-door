@@ -30,11 +30,52 @@ describe("resolveLocal", () => {
     expect(resolveLocal(cat, "finely chopped apples, peeled")).toMatchObject({ base: "apple", how: "rule" });
     expect(resolveLocal(cat, "dark brown sugar")).toMatchObject({ base: "brown sugar" });
     expect(resolveLocal(cat, "red lentils (washed)")).toMatchObject({ base: "red lentil", aisle: "grains" });
-    expect(resolveLocal(cat, "freshly ground black pepper")).toMatchObject({ base: "freshly ground black pepper", how: "unknown" });
+    expect(resolveLocal(cat, "freshly ground black pepper")).toMatchObject({ base: "black pepper", how: "rule" });
   });
   it("keeps the rule result with aisle other when nothing matches", () => {
-    expect(resolveLocal(cat, "Fresh Curry Leaves")).toEqual({ base: "fresh curry leaf", aisle: "other", how: "unknown" });
+    expect(resolveLocal(cat, "Fresh Curry Leaves")).toEqual({ base: "curry leaf", aisle: "other", how: "unknown" });
     expect(resolveLocal(cat, "Granny Smith apples")).toMatchObject({ how: "unknown", base: "granny smith apple" });
+  });
+});
+
+describe("water, diet qualifiers and frozen", () => {
+  const big = buildCatalogue({
+    bases: [
+      ["water", "home"], ["hot sauce", "oils-sauces"], ["red onion", "produce"], ["onion", "produce"], ["ground coriander", "spices"],
+      ["coriander", "produce"], ["sugar", "baking"], ["fresh yeast", "dairy"], ["dry yeast", "baking"], ["ice cream", "frozen"], ["white wine", "drinks"],
+      ["butter", "dairy"], ["chicken stock", "spices"], ["stevia", "oils-sauces"], ["cottage cheese", "dairy"], ["tortilla", "international"],
+      ["frozen blueberry", "frozen"],
+    ].map(([base, aisle]) => ({ base: base!, aisle: aisle as never, origin: "seed" as const })),
+    aliases: [{ alias: "granulated sugar", base: "sugar", origin: "seed" }],
+  });
+  const place = (item: string) => {
+    const r = resolveLocal(big, item);
+    return [r.base, r.aisle];
+  };
+  it("keeps water variants on water", () => {
+    for (const item of ["cold or sparkling water", "hot water", "boiling water"]) expect(place(item), item).toEqual(["water", "home"]);
+  });
+  it("drops sweetener and diet qualifiers", () => {
+    expect(place("granulated stevia")).toEqual(["stevia", "oils-sauces"]);
+    expect(place("stevia")).toEqual(["stevia", "oils-sauces"]);
+    expect(place("low fat cottage cheese")).toEqual(["cottage cheese", "dairy"]);
+    expect(place("low carb tortilla")).toEqual(["tortilla", "international"]);
+  });
+  it("keeps a frozen item in the frozen aisle, known or not", () => {
+    expect(place("frozen blueberries")).toEqual(["frozen blueberry", "frozen"]);
+    expect(resolveLocal(big, "frozen jackfruit")).toEqual({ base: "frozen jackfruit", aisle: "frozen", how: "rule" });
+  });
+  it("still resolves kinds that a descriptor word is part of", () => {
+    expect(place("hot sauce")).toEqual(["hot sauce", "oils-sauces"]);
+    expect(place("red onion")).toEqual(["red onion", "produce"]);
+    expect(place("ground coriander")).toEqual(["ground coriander", "spices"]);
+    expect(place("granulated sugar")).toEqual(["sugar", "baking"]);
+    expect(place("fresh yeast")).toEqual(["fresh yeast", "dairy"]);
+    expect(place("ice cream")).toEqual(["ice cream", "frozen"]);
+    expect(place("white wine")).toEqual(["white wine", "drinks"]);
+    expect(place("butter or margarine")).toEqual(["butter", "dairy"]);
+    expect(place("chicken or vegetable stock")).toEqual(["chicken stock", "spices"]);
+    expect(place("red or green onion")).toEqual(["red onion", "produce"]);
   });
 });
 
@@ -56,13 +97,17 @@ describe("the rules", () => {
   it("strip notes, alternatives, accents and descriptors", () => {
     expect(ruleBase("Butter or margarine")).toBe("butter");
     expect(ruleBase("Crème fraîche")).toBe("creme fraiche");
-    expect(ruleBase("large organic eggs")).toBe("organic egg");
+    expect(ruleBase("large organic eggs")).toBe("egg");
     expect(ruleBase("red")).toBe("red");
     expect(storedName("Granny Smith Apples")).toBe("granny smith apple");
   });
 });
 
 describe("aisle order", () => {
+  it("puts the home aisle last", () => {
+    expect(DEFAULT_AISLE_ORDER.at(-1)).toBe("home");
+    expect(completeAisleOrder(["dairy"]).at(-1)).toBe("home");
+  });
   it("is completed: unknown and repeated ids dropped, missing aisles appended in default order", () => {
     const order = completeAisleOrder(["dairy", "nope", "dairy", "produce"]);
     expect(order.slice(0, 2)).toEqual(["dairy", "produce"]);

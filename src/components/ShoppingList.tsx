@@ -176,10 +176,10 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                             <label>
                               <input type="checkbox" checked={l.checked} onChange={() => void toggleItem(l.id)} />
                               <span>
-                                {amount || (l.recipe_title ? "" : "-")}
+                                {amount || <em className="muted">undefined</em>}
                                 {l.recipe_title && (
                                   <>
-                                    {amount && " - "}
+                                    {" - "}
                                     {l.recipe_id ? (
                                       <Link href={`/recipes/${l.recipe_id}`} onClick={onNavigate}>
                                         {l.recipe_title}

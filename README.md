@@ -162,3 +162,7 @@ Cloudflare account and no `wrangler.jsonc`.
 
 See [docs/DEPLOY.md](docs/DEPLOY.md) for a deploy from zero: D1, R2 and KV, OAuth apps, secrets,
 allowlists, staging, a custom domain and connecting Claude over MCP.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

@@ -44,7 +44,7 @@ describe("water, diet qualifiers and frozen", () => {
       ["water", "home"], ["hot sauce", "oils-sauces"], ["red onion", "produce"], ["onion", "produce"], ["ground coriander", "spices"],
       ["coriander", "produce"], ["sugar", "baking"], ["fresh yeast", "dairy"], ["dry yeast", "baking"], ["ice cream", "frozen"], ["white wine", "drinks"],
       ["butter", "dairy"], ["chicken stock", "spices"], ["stevia", "oils-sauces"], ["cottage cheese", "dairy"], ["tortilla", "international"],
-      ["frozen blueberry", "frozen"],
+      ["frozen blueberry", "frozen"], ["salt", "spices"],
     ].map(([base, aisle]) => ({ base: base!, aisle: aisle as never, origin: "seed" as const })),
     aliases: [{ alias: "granulated sugar", base: "sugar", origin: "seed" }],
   });
@@ -76,6 +76,7 @@ describe("water, diet qualifiers and frozen", () => {
     expect(place("butter or margarine")).toEqual(["butter", "dairy"]);
     expect(place("chicken or vegetable stock")).toEqual(["chicken stock", "spices"]);
     expect(place("red or green onion")).toEqual(["red onion", "produce"]);
+    expect(place("salt or freshly ground black pepper")).toEqual(["salt", "spices"]);
   });
 });
 

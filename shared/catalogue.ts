@@ -89,47 +89,56 @@ const DESCRIPTORS = new Set(
 
 /** Diet qualifiers that do not change the ingredient: "low fat cottage cheese", "sugar free jelly". */
 const DIET_QUALIFIER = /\b(?:(?:low|reduced|full|zero|no)[ -](?:fat|carb|sugar|salt|sodium)|(?:fat|sugar|gluten|lactose)[ -]free)\b/g;
-/** "cold or sparkling water": a single word, "or", then a longer name whose last word is shared. */
+/** "cold or sparkling water", "chicken or vegetable stock": one word, "or", a longer name; read as first word + its last word. */
 const SHARED_NOUN = /^(\p{L}+) or [^,;]+ (\p{L}+)\s*(?:[,;].*)?$/u;
 
-/**
- * The name without notes: "tomatoes, peeled (or canned)" -> "tomatoes", "butter or margarine" -> "butter",
- * "cold or sparkling water" -> "cold water", "low fat cottage cheese" -> "cottage cheese".
- */
-const coreName = (item: string): string =>
-  itemKey(item)
-    .replace(/\([^)]*\)/g, " ")
-    .replace(SHARED_NOUN, "$1 $2")
-    .split(/,|;| or /)[0]!
+/** Notes, punctuation and diet qualifiers dropped: "low fat cottage cheese" -> "cottage cheese". */
+const clean = (name: string): string =>
+  name
     .replace(DIET_QUALIFIER, " ")
     .replace(/[^\p{L}\p{N}' -]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 
 /**
- * The names to look up for `item`, most specific first: the exact key, the singular core name, then
- * leading descriptors dropped one by one, then every descriptor dropped. The last one is the
- * rule result used when nothing matches.
+ * The core names of `item`, singular: the shared-noun reading of an alternative first when there is
+ * one ("cold or sparkling water" -> "cold water"), then the first alternative ("cold"). The lookup
+ * keeps whichever the catalogue knows, so "salt or black pepper" still lands on "salt".
  */
-export function candidateNames(item: string): string[] {
-  const out = [itemKey(item)];
-  const core = singularKey(coreName(item));
-  if (core) out.push(core);
-  const words = core.split(" ").filter(Boolean);
+function coreNames(item: string): string[] {
+  const key = itemKey(item).replace(/\([^)]*\)/g, " ").trim();
+  const shared = SHARED_NOUN.exec(key);
+  const cores = [shared ? `${shared[1]} ${shared[2]}` : "", key.split(/,|;| or /)[0]!].map((n) => singularKey(clean(n)));
+  return [...new Set(cores.filter(Boolean))];
+}
+
+/** A core name, then leading descriptors dropped one by one, then every descriptor dropped. Empty when only descriptors are left. */
+function descriptorChain(core: string): string[] {
+  const words = core.split(" ");
+  const stripped = words.filter((w) => !DESCRIPTORS.has(w)).join(" ");
+  if (!stripped) return [];
+  const out = [core];
   while (words.length > 1 && DESCRIPTORS.has(words[0]!)) {
     words.shift();
     out.push(words.join(" "));
   }
-  const stripped = words.filter((w) => !DESCRIPTORS.has(w)).join(" ");
-  if (stripped) out.push(stripped);
-  return [...new Set(out.filter(Boolean))];
+  out.push(stripped);
+  return out;
+}
+
+/**
+ * The names to look up for `item`, most specific first: the exact key, then each core name's
+ * descriptor chain. The last one is the rule result used when nothing matches.
+ */
+export function candidateNames(item: string): string[] {
+  return [...new Set([itemKey(item), ...coreNames(item).flatMap(descriptorChain)].filter(Boolean))];
 }
 
 /** The deterministic base for an item that is not in the catalogue. */
 export const ruleBase = (item: string): string => candidateNames(item).at(-1) ?? itemKey(item);
 
 /** A name in the form bases and aliases are stored in: the core name, keyed, last word singular. */
-export const storedName = (name: string): string => singularKey(coreName(name)) || itemKey(name);
+export const storedName = (name: string): string => coreNames(name)[0] ?? itemKey(name);
 
 export type CatalogueEntry = { base: string; aisle: Aisle; origin: Origin };
 export type CatalogueAlias = { alias: string; base: string; origin: Origin };

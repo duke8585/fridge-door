@@ -220,13 +220,30 @@ describe("the catalogue API", () => {
     claude.push(haiku([{ item: "shiso leaves", base: "shiso leaf", aisle: "international" }]));
     const token = { as: null, headers: { authorization: `Bearer ${TEST_IMPORT_TOKEN}` } } as const;
     const first = await call("/catalogue/backfill", { ...token, method: "PUT" });
-    expect(first.body).toEqual({ recipes: 1, updated: 1, items: 2, unknown: 0, nextCursor: null });
+    expect(first.body).toEqual({ recipes: 1, updated: 1, shopping: 0, items: 2, unknown: 0, nextCursor: null });
     const row = sqlite.prepare("SELECT sections_json, updated_at FROM recipes WHERE id = 'old'").get() as { sections_json: string; updated_at: string };
     expect(JSON.parse(row.sections_json)[0].ingredients.map((i: { base: string }) => i.base)).toEqual(["apple", "shiso leaf"]);
     expect(row.updated_at).toBe("T");
     expect(sqlite.prepare("SELECT COUNT(*) AS n FROM recipe_revisions").get()).toEqual({ n: 0 });
     expect((await call("/catalogue/backfill", { ...token, method: "PUT" })).body).toMatchObject({ updated: 0, unknown: 0 });
     expect(sentToClaude).toHaveLength(1);
+  });
+
+  it("the backfill regroups shopping rows placed under an older catalogue, and clients see the move", async () => {
+    await sync([
+      row("w", "cold or sparkling water", { base: "cold", aisle: "other" }),
+      row("s", "granulated stevia", { base: "granulated stevia", aisle: "other" }),
+      row("b", "butter", { base: "butter", aisle: "dairy" }),
+      row("gone", "hot water", { base: "hot water", aisle: "other", deleted: true }),
+    ]);
+    const before = (await sync([])).body.rev;
+    const token = { as: null, headers: { authorization: `Bearer ${TEST_IMPORT_TOKEN}` } } as const;
+    expect((await call("/catalogue/backfill", { ...token, method: "PUT" })).body).toMatchObject({ shopping: 2 });
+    const moved = (await sync([], before)).body.items;
+    expect(moved.map((i) => [i.id, i.base, i.aisle])).toEqual([["w", "water", "home"], ["s", "stevia", "oils-sauces"]]);
+    expect(moved.every((i) => i.updated_at > "2026-11-09T10:00:00.000Z")).toBe(true);
+    expect((await call("/catalogue/backfill", { ...token, method: "PUT" })).body).toMatchObject({ shopping: 0 });
+    expect(sentToClaude).toHaveLength(0);
   });
 });
 

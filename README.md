@@ -75,7 +75,8 @@ Credit exhaustion or a rejected key pauses AI calls for one hour. Unknown ingred
 a save while the server waits for the model, with a 20-second timeout per batch.
 
 Shopping rows that already carry a fallback base and aisle skip later classification. They do not
-automatically retry when AI recovers. The recipe backfill does not enrich existing shopping rows.
+automatically retry when AI recovers. The recipe backfill places live shopping rows again, so they
+regroup after the catalogue changed.
 
 This classifier is separate from the model that extracts a recipe from a URL. Saving the imported
 recipe runs ingredient resolution after extraction.

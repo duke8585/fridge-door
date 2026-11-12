@@ -17,6 +17,7 @@ import {
   type Catalogue,
 } from "../shared/catalogue";
 import type { RecipeInput, ShoppingItem } from "../shared/schema";
+import { nextTimestamp } from "../shared/shopping";
 import { aiState, noteOutage, strictSchema, type AiEnv } from "./ai";
 import * as repo from "./repo";
 
@@ -149,22 +150,31 @@ export async function placeShopping(env: AiEnv, items: readonly ShoppingItem[]):
   });
 }
 
-export type BackfillResult = { recipes: number; updated: number; items: number; unknown: number; nextCursor: string | null };
+export type BackfillResult = { recipes: number; updated: number; shopping: number; items: number; unknown: number; nextCursor: string | null };
 
 /**
- * Resolves the bases of every stored recipe again and writes the ones that changed. Idempotent: a
- * second run with the same catalogue writes nothing, and a run after the catalogue learned more
- * (or with a key that was missing before) converges on the new answers.
+ * Resolves the bases of every stored recipe again and writes the ones that changed. The first page
+ * (no cursor) also places every live shopping row again, so rows added under an older catalogue
+ * regroup; a moved row is written with a newer updated_at so clients pick it up on their next sync.
+ * Idempotent: a second run with the same catalogue writes nothing, and a run after the catalogue
+ * learned more (or with a key that was missing before) converges on the new answers.
  */
 export async function backfillBases(env: AiEnv, opts: { model: boolean; cursor?: string }): Promise<BackfillResult> {
   const rows = await repo.allSections(env.DB, opts.cursor);
   const parsed = rows.map((r) => ({ ...r, sections: JSON.parse(r.sections_json) as RecipeInput["sections"] }));
-  const items = parsed.flatMap((r) => r.sections.flatMap((s) => s.ingredients.map((i) => i.item)));
-  const { places, unknown } = await resolveItems(env, items, opts);
+  const shopping = opts.cursor ? [] : (await repo.shoppingSince(env.DB, 0)).items.filter((i) => !i.deleted);
+  const items = [...parsed.flatMap((r) => r.sections.flatMap((s) => s.ingredients.map((i) => i.item))), ...shopping.map((i) => i.item)];
+  const { cat, places, unknown } = await resolveItems(env, items, opts);
   let updated = 0;
   for (const r of parsed) {
     const after = JSON.stringify(withBases({ sections: r.sections }, places).sections);
     if (after !== r.sections_json && (await repo.setSectionBases(env.DB, r.id, r.sections_json, after))) updated++;
   }
-  return { recipes: rows.length, updated, items: places.size, unknown, nextCursor: rows.length === 50 ? rows.at(-1)!.id : null };
+  const moved = shopping.flatMap((i) => {
+    const base = places.get(i.item)!.base;
+    const aisle = cat.aisles.get(base) ?? places.get(i.item)!.aisle;
+    return base === i.base && aisle === i.aisle ? [] : [{ ...i, base, aisle, updated_at: nextTimestamp(i.updated_at) }];
+  });
+  await repo.applyShopping(env.DB, moved);
+  return { recipes: rows.length, updated, shopping: moved.length, items: places.size, unknown, nextCursor: rows.length === 50 ? rows.at(-1)!.id : null };
 }

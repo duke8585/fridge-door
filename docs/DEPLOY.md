@@ -269,7 +269,9 @@ curl -X PUT -H "Authorization: Bearer <IMPORT_TOKEN of that env>" https://<your 
 ```
 
 It is idempotent: rerun it after a key was added or the credits were topped up, and it converges on
-the new answers. It answers `{ recipes, updated, items, unknown, nextCursor }`. Each request processes at most 50 recipes. Repeat with `?cursor=<URL-encoded nextCursor>` until `nextCursor` is null; restart without a cursor after enabling AI or correcting aliases. `unknown` counts the names that
+the new answers. The first request (no cursor) also places every live shopping row again and writes the ones whose
+base or aisle moved, with a newer `updated_at` so phones pick them up. It answers
+`{ recipes, updated, shopping, items, unknown, nextCursor }`. Each request processes at most 50 recipes. Repeat with `?cursor=<URL-encoded nextCursor>` until `nextCursor` is null; restart without a cursor after enabling AI or correcting aliases. `unknown` counts the names that
 kept a rule-based base. Review what the model added with the MCP tool `list_ingredients` (origin
 `auto`) and correct it with `set_ingredient`.
 

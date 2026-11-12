@@ -6,6 +6,7 @@ import { db, kvGet, kvSet } from "./idb";
 import { upgradeTags } from "../../shared/tags";
 import { applyOp, applyOpToSummary, opRecipeId, type OutboxOp } from "./ops";
 import { allOps, enqueue } from "./outbox";
+import { recipesToCache } from "../lib/offlineRecipes";
 
 // ---------- list ----------
 export const summaries = signal<RecipeSummary[] | undefined>(undefined);
@@ -89,6 +90,21 @@ export async function refreshRecipe(id: string): Promise<void> {
 export async function replaceRecipe(d: RecipeDetail): Promise<void> {
   await store(d);
   detailSignal(d.recipe.id).set({ detail: await withPending(d) });
+}
+
+/** Cache the given recipes for offline use (see recipesToCache). Stops at the first failure; the next sync retries. */
+export async function cacheRecipes(ids: readonly string[]): Promise<void> {
+  const d = await db();
+  const cached = new Map<string, string>();
+  for (const id of new Set(ids)) {
+    const hit = await d.get("recipes", id);
+    if (hit) cached.set(id, hit.recipe.updated_at);
+  }
+  const list = summaries.get();
+  const listed = list && new Map(list.map((r) => [r.id, r.updated_at]));
+  for (const id of recipesToCache(ids, cached, listed)) {
+    await store(await api<RecipeDetail>(`/recipes/${encodeURIComponent(id)}`));
+  }
 }
 
 export async function recentlyCached(): Promise<string[]> {

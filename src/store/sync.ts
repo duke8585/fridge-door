@@ -8,8 +8,8 @@ import { applyRemoteAisleOrder } from "./aisles";
 import { refreshCatalogue } from "./catalogue";
 import { kvGet, kvSet, type QueuedOp } from "./idb";
 import { allOps, onEnqueue, refreshPending, removeOps } from "./outbox";
-import { refreshOpenRecipes } from "./recipes";
-import { applyRemoteShopping } from "./shopping";
+import { cacheRecipes, refreshOpenRecipes } from "./recipes";
+import { applyRemoteShopping, shopping } from "./shopping";
 
 /** `authRequired`: the server answered 401 (session expired); ops stay queued until login. */
 export type SyncStatus = { online: boolean; syncing: boolean; authRequired?: boolean; lastOkAt?: string; lastError?: string };
@@ -169,7 +169,11 @@ export function startSync(): void {
   const poll = async (): Promise<void> => {
     if (document.visibilityState !== "visible") return;
     await syncNow();
-    if (++tick % RECIPE_POLL_EVERY === 0 && syncStatus.get().online) await refreshOpenRecipes(openRecipes);
+    if (++tick % RECIPE_POLL_EVERY !== 0 || !syncStatus.get().online) return;
+    await refreshOpenRecipes(openRecipes);
+    // the recipes on the shopping list must open offline in the shop, also when added on another device
+    const onList = [...shopping.get().values()].flatMap((i) => (!i.deleted && i.recipe_id ? [i.recipe_id] : []));
+    await cacheRecipes(onList).catch((e: unknown) => console.warn("caching list recipes failed", e));
   };
   setInterval(() => void poll(), POLL_MS);
   window.addEventListener("online", () => void syncNow());

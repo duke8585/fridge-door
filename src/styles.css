@@ -387,4 +387,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .clear-buttons { margin-top: 1rem; }
 .clear-buttons button { flex: 1; }
 .clear-buttons .danger { border-color: var(--err); }
-.shopping-search { width: 100%; margin-bottom: 0.5rem; }
+/* the search stays reachable while scrolling a long list: below the app header on the page, at the top of the drawer */
+.shopping-search { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 0.4rem 0 0.5rem; }
+.shopping-page .shopping-search { top: var(--header-h, 0px); }
+.drawer-body .shopping-search { top: -0.75rem; } /* cover the drawer body's padding too */
+.shopping-search input { width: 100%; }
+.page-title { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "../lib/router";
 import { useSignal } from "../lib/signal";
 import { currentUser, forgetUser, userKnown } from "../lib/user";
@@ -16,9 +17,22 @@ export function Header({ onOpenShopping }: { onOpenShopping: () => void }) {
   const pending = useSignal(pendingCount);
   const count = useUncheckedCount();
   const rej = useSignal(rejected);
+  const ref = useRef<HTMLElement>(null);
+  // Publish the header's height (it wraps to two rows on phones) so sticky bars below it can sit flush.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement.style;
+    const observer = new ResizeObserver(() => root.setProperty("--header-h", `${el.offsetHeight}px`));
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.removeProperty("--header-h");
+    };
+  }, []);
   const label = status.authRequired ? "logged out" : !status.online ? "offline" : pending > 0 ? `${pending} to sync` : "synced";
   return (
-    <header className="app-header">
+    <header className="app-header" ref={ref}>
       <Link href="/" className="brand">
         Fridge Door
       </Link>

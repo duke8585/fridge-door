@@ -115,7 +115,9 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
       )}
 
       {groups.length > 0 && (
-        <input type="search" className="shopping-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the list" aria-label="Search the list" />
+        <div className="shopping-search">
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the list" aria-label="Search the list" />
+        </div>
       )}
 
       {groups.length === 0 && <p className="muted center">The list is empty.</p>}

@@ -6,7 +6,7 @@ import { formatMinutes, matchesTimeFilter, TIME_FILTERS } from "../../shared/tim
 import { BookmarkButton, BookmarkIcon } from "../components/BookmarkButton";
 import { AvgStars } from "../components/Stars";
 import { TagChip } from "../components/TagChip";
-import { compareRecipes, loadSort, nextSort, saveSort, SORTS, type Sort } from "../lib/recipeSort";
+import { compareRecipes, DEFAULT_SORT, nextSort, SORTS, type Sort } from "../lib/recipeSort";
 import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
 import { Link, navigate } from "../lib/router";
 import { useSignal } from "../lib/signal";
@@ -36,7 +36,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   // "duration" is a tab like the tag groups, holding the total-time filter
   const [openGroup, setOpenGroup] = useState<TagGroup | "duration" | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
-  const [sort, setSort] = useState<Sort>(loadSort);
+  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const list = useMemo(() => (bookmarks ? all?.filter((r) => r.bookmarks.some((b) => b.user === me)) : all), [all, bookmarks, me]);
   const [time, setTime] = useState<string | null>(null);
   const [cached, setCached] = useState<Set<string>>(new Set());
@@ -212,11 +212,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
                 className={active ? "chip on" : "chip"}
                 aria-pressed={active}
                 title={active ? "Click again to reverse" : undefined}
-                onClick={() => {
-                  const next = nextSort(sort, o.id);
-                  setSort(next);
-                  saveSort(next);
-                }}
+                onClick={() => setSort(nextSort(sort, o.id))}
               >
                 {o.label}
                 {active && arrow}

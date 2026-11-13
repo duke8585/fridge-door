@@ -1,4 +1,4 @@
-/** The library's sort orders and direction, and the per-device choice. */
+/** The library's sort orders and direction. The list always opens on DEFAULT_SORT. */
 import type { RecipeSummary } from "../../shared/schema";
 
 /** `desc` is the first click's direction: newest, best rated, A first. */
@@ -41,30 +41,5 @@ export function compareRecipes({ id, dir }: Sort): (a: Sortable, b: Sortable) =>
         (a.avg_rating === null ? 1 : 0) - (b.avg_rating === null ? 1 : 0) || s * ((a.avg_rating ?? 0) - (b.avg_rating ?? 0)) || byTitle(a, b);
     case "az":
       return (a, b) => s * byTitle(a, b);
-  }
-}
-
-const KEY = "fd_sort";
-const parse = (v: string | null): Sort => {
-  const [id, dir] = (v ?? "").split(":");
-  const known = SORTS.find((s) => s.id === id);
-  if (!known) return DEFAULT_SORT;
-  return { id: known.id, dir: dir === "asc" || dir === "desc" ? dir : known.first };
-};
-
-/** localStorage can be missing or throw (private mode, blocked storage): fall back to the default. */
-export function loadSort(): Sort {
-  try {
-    return parse(localStorage.getItem(KEY));
-  } catch {
-    return DEFAULT_SORT;
-  }
-}
-
-export function saveSort(sort: Sort): void {
-  try {
-    localStorage.setItem(KEY, `${sort.id}:${sort.dir}`);
-  } catch {
-    /* not remembered on this device */
   }
 }

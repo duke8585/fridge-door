@@ -312,6 +312,7 @@ describe("correction concurrency regressions", () => {
     expect(place("hot sauce")).toEqual(["hot sauce", "oils-sauces"]);
     expect(place("ice cream")).toEqual(["ice cream", "frozen"]);
     expect(place("white wine")).toEqual(["white wine", "drinks"]);
+    for (const item of ["matcha", "matcha powder"]) expect(place(item), item).toEqual(["matcha powder", "baking"]);
     expect(place("chicken or vegetable stock")).toEqual(["chicken stock", "spices"]);
     for (const [item, base] of [["ice-cold water", "water"], ["just-off-boil water", "water"], ["cold filtered water", "water"], ["whole milk", "milk"],
       ["unsweetened Greek yogurt", "greek yogurt"], ["light soy sauce", "soy sauce"], ["light brown sugar", "brown sugar"], ["shiitake mushrooms", "mushroom"],

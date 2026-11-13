@@ -139,11 +139,11 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                       <button
                         type="button"
                         className="icon ghost small"
-                        aria-label={`Move ${g.key} to another aisle`}
+                        aria-label={`Change the category of ${g.key}`}
                         aria-expanded={moving === g.key}
                         onClick={() => setMoving(moving === g.key ? null : g.key)}
                       >
-                        aisle
+                        change category
                       </button>
                       {!showLines && (
                         <button type="button" className="icon ghost" aria-label="Remove" onClick={() => void removeItem(g.lines[0]!.id)}>
@@ -154,7 +154,7 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                     {moving === g.key && (
                       <select
                         className="aisle-select"
-                        aria-label={`Aisle for ${g.key}`}
+                        aria-label={`Category for ${g.key}, remembered for next time`}
                         value={g.aisle}
                         autoFocus
                         onChange={(e) => {
@@ -234,10 +234,10 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
         </button>
       )}
       <button type="button" className="link-button small" aria-expanded={editingOrder} onClick={() => setEditingOrder(!editingOrder)}>
-        {editingOrder ? "Done ordering aisles" : "Aisle order"}
+        {editingOrder ? "Done ordering categories" : "Category order"}
       </button>
       {editingOrder && (
-        <ol className="aisle-order" aria-label="Aisle order, shared by both of you">
+        <ol className="aisle-order" aria-label="Category order, shared by both of you">
           {aisles.map((a, i) => (
             <li key={a}>
               <span>{aisleLabel(a)}</span>

@@ -62,7 +62,7 @@ export function placeOf(it: ShoppingItem, cat: Catalogue = EMPTY_CATALOGUE): { b
 }
 
 /**
- * Group live (non-deleted) items by base. Unchecked groups first, then alphabetical. A group's aisle
+ * Group live (non-deleted) items by base, alphabetical; a ticked group keeps its place. A group's aisle
  * is that of its most recently written line, so a move shows at once even before every line synced.
  */
 export function groupShopping(items: Iterable<ShoppingItem>, cat: Catalogue = EMPTY_CATALOGUE): ShoppingGroup[] {
@@ -84,7 +84,7 @@ export function groupShopping(items: Iterable<ShoppingItem>, cat: Catalogue = EM
   }
   const out = [...groups.values()].map(({ at: _, ...g }) => g);
   for (const g of out) g.lines.sort((a, b) => (a.recipe_title ?? "").localeCompare(b.recipe_title ?? ""));
-  return out.sort((a, b) => Number(a.allChecked) - Number(b.allChecked) || a.key.localeCompare(b.key));
+  return out.sort((a, b) => a.key.localeCompare(b.key));
 }
 
 export type AisleSection = { aisle: Aisle; groups: ShoppingGroup[] };

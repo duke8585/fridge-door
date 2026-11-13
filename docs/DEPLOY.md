@@ -260,6 +260,8 @@ it. Older clients and their offline queues keep syncing, since new fields are op
 ## Ingredient bases
 
 Migrations 0008 and 0009 add the ingredient catalogue with a starter set and its change generation.
+Later catalogue migrations (0010, 0011) move or add seed entries; they leave an aisle a person set
+alone. After applying one, run the backfill so stored recipes and the current shopping list regroup.
 Recipes saved before them (and the demo seed) have no bases until they are saved again. The backfill resolves every recipe's ingredients (Haiku for names
 the catalogue does not know, when `ANTHROPIC_API_KEY` is set) and writes only the bases, without a
 revision and without changing `updated_at`:

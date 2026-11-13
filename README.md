@@ -23,8 +23,8 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   `shared/tags.ts`. The list filters by group and searches titles, ingredients, tags and notes.
 - **Shopping list** shared between both people, filled from a recipe at its current scale. Items
   are grouped by ingredient base ("red apple" and "apples" are one "apple") under aisle headings,
-  in one household aisle order that either person can reorder. Moving an item to another aisle
-  teaches the catalogue.
+  in one household aisle order that either person can reorder. Staples such as water and ice sit
+  last under "Likely at home". Moving an item to another aisle teaches the catalogue.
 - **Ingredient catalogue** in D1 (`shared/catalogue.ts`): canonical bases with aliases and an aisle.
   Every saved ingredient gets a base through catalogue lookup, deterministic rules, or Claude
   Haiku for unknown names. Successful model answers become `auto` entries for review. Without AI,
@@ -52,7 +52,7 @@ For each ingredient, the resolver tries these steps in order:
 1. Look up its name in the catalogue of bases and aliases.
 2. Apply deterministic rules, such as singularizing and removing preparation or size words,
    then look up the result again. Product-changing words such as "dried" and "ground" stay.
-3. Send remaining unknown names to Claude Haiku in batches of up to 60 names. The model proposes
+3. Send remaining unknown names to Claude Haiku in batches of up to 30 names. The model proposes
    a canonical base and aisle. Successful answers are stored with origin `auto`, so later uses
    normally resolve without another model call.
 

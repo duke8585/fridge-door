@@ -107,3 +107,9 @@ INSERT OR IGNORE INTO ratings (recipe_id, user, stars, updated_at) VALUES
 ('shakshuka', 'partner', 5, '2026-11-09T09:00:00.000Z'),
 ('chickpea-curry', 'partner', 4, '2026-11-09T09:00:00.000Z'),
 ('banana-bread', 'max', 4, '2026-11-09T09:00:00.000Z');
+
+INSERT OR IGNORE INTO bookmarks (recipe_id, user, created_at) VALUES
+('pancakes', 'max', '2026-11-09T10:00:00.000Z'),
+('pancakes', 'partner', '2026-11-09T10:30:00.000Z'),
+('shakshuka', 'max', '2026-11-10T08:00:00.000Z'),
+('banana-bread', 'partner', '2026-11-10T18:00:00.000Z');

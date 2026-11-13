@@ -17,6 +17,11 @@ describe("demo seed", () => {
     expect(rows.length).toBe(10);
   });
 
+  it("has bookmarks for both people", () => {
+    const users = sqlite.prepare("SELECT DISTINCT user FROM bookmarks ORDER BY user").all();
+    expect(users).toEqual([{ user: "max" }, { user: "partner" }]);
+  });
+
   it("has valid sections and only tags of the scheme", () => {
     for (const r of rows) {
       expect(() => z.array(SectionSchema).parse(JSON.parse(r.sections_json)), r.id).not.toThrow();

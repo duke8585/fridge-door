@@ -19,6 +19,8 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
 - **Scaling** by servings or by factor, with per-unit rounding and g/ml promoted to kg/l.
 - **Cooking mode**: bigger text, screen kept awake, tap to tick off steps and ingredients.
 - **Ratings and comments** per person, markdown comments with preview.
+- **Bookmarks** per person: tap the bookmark on a card or a recipe, filter the list to yours, or open the
+  Bookmarked page. Bookmarked recipes open offline, and an import offers to bookmark the new recipe.
 - **Tags** in groups (`course:main`, `cuisine:thai`, `list:next-up`, ...), defined once in
   `shared/tags.ts`. The list filters by group and searches titles, ingredients, tags and notes.
 - **Shopping list** shared between both people, filled from a recipe at its current scale. Items
@@ -32,7 +34,7 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   Haiku for unknown names. Successful model answers become `auto` entries for review. Without AI,
   unknown names keep a rule-derived base. Recipe search matches bases too, so "apples" finds "red apple".
 - **Offline first**: the app shell is cached by a service worker, data lives in IndexedDB, and
-  edits made offline (shopping items, ratings, tags, comments, cover crop) sync when back online.
+  edits made offline (shopping items, ratings, bookmarks, tags, comments, cover crop) sync when back online.
 - **Version history** for every recipe, with a diff and restore.
 - **Import from a link**: paste a recipe URL (or share it from the phone) and Claude turns the
   page into a draft in the editor. Without an API key, pages with schema.org Recipe data are still

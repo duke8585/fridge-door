@@ -16,7 +16,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 envfile="$root/.env"
 key="IMPORT_TOKEN_$(echo "$env" | tr a-z A-Z)"
 token="$(openssl rand -base64 32 | tr -d '\n')"
-(cd "$root" && printf %s "$token" | npx wrangler secret put IMPORT_TOKEN -c wrangler.jsonc "${envflag[@]}")
+(cd "$root" && printf %s "$token" | npx wrangler secret put IMPORT_TOKEN -c wrangler.jsonc ${envflag[@]+"${envflag[@]}"})
 (
   umask 077
   { [ -f "$envfile" ] && grep -v "^$key=" "$envfile" || true; echo "$key=$token"; } > "$envfile.new"

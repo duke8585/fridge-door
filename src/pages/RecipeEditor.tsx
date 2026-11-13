@@ -27,7 +27,7 @@ import { Link, navigate } from "../lib/router";
 import { useSignal } from "../lib/signal";
 import { currentUser } from "../lib/user";
 import { dropImport, takeImport, type PendingImport } from "../store/importDraft";
-import { detailSignal, loadRecipe, replaceRecipe, setCoverFocus } from "../store/recipes";
+import { detailSignal, loadRecipe, replaceRecipe, setBookmark, setCoverFocus } from "../store/recipes";
 
 // ---------- draft model (strings while typing, converted on save) ----------
 type Draft = {
@@ -167,6 +167,9 @@ function EditorForm({
         }
       : undefined,
   );
+  const user = useSignal(currentUser);
+  // an imported recipe is usually one you want to find again
+  const [bookmarkIt, setBookmarkIt] = useState(true);
   const inputs = useRef(new Map<string, HTMLElement>());
   const [focusKey, setFocusKey] = useState<string>();
 
@@ -290,6 +293,7 @@ function EditorForm({
     setErrors({});
     await replaceRecipe({ recipe: saved.recipe, comments: saved.comments });
     dropImport(imported.token);
+    if (bookmarkIt) await setBookmark(saved.recipe.id, user, true);
     if (saved.cover_error) alert(`The recipe was saved, but the cover could not be downloaded: ${saved.cover_error}`);
     navigate(`/recipes/${saved.recipe.id}`, { replace: true });
   };
@@ -351,6 +355,8 @@ function EditorForm({
           problems={importState.problems}
           duplicates={importState.duplicates}
           coverUrl={importState.coverUrl}
+          bookmarkIt={bookmarkIt}
+          onBookmarkIt={setBookmarkIt}
           onRemoveCover={() => setImportState((s) => s && { ...s, coverUrl: null })}
         />
       )}
@@ -525,12 +531,16 @@ function ImportPanel({
   problems,
   duplicates,
   coverUrl,
+  bookmarkIt,
+  onBookmarkIt,
   onRemoveCover,
 }: {
   pending: PendingImport;
   problems: string[];
   duplicates: DuplicateCandidate[];
   coverUrl: string | null;
+  bookmarkIt: boolean;
+  onBookmarkIt: (on: boolean) => void;
   onRemoveCover: () => void;
 }) {
   const { draft } = pending;
@@ -591,6 +601,10 @@ function ImportPanel({
           </div>
         </div>
       )}
+      <label className="row gap small">
+        <input type="checkbox" checked={bookmarkIt} onChange={(e) => onBookmarkIt(e.target.checked)} />
+        Bookmark it
+      </label>
     </section>
   );
 }

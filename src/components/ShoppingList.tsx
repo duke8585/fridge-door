@@ -152,6 +152,7 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                       )}
                     </label>
                     {moving === g.key && (
+                      <>
                       <select
                         className="aisle-select"
                         aria-label={`Category for ${g.key}, remembered for next time`}
@@ -168,6 +169,8 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                           </option>
                         ))}
                       </select>
+                      <p className="aisle-hint">Saved for both of you: {g.key} goes here from now on, from every recipe.</p>
+                      </>
                     )}
                     {showLines && (
                       <ul className="lines">

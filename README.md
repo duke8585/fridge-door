@@ -24,7 +24,8 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
 - **Shopping list** shared between both people, filled from a recipe at its current scale. Items
   are grouped by ingredient base ("red apple" and "apples" are one "apple") under aisle headings,
   in one household aisle order that either person can reorder. Staples such as water and ice sit
-  last under "Likely at home". Moving an item to another aisle teaches the catalogue. The cart
+  last under "Likely at home". "change category" on an item is permanent and shared: it moves the
+  item for both of you and every later time it lands on the list, from any recipe. The cart
   opens it as a side panel on wide screens and as its own page on phones, with a pinned search.
 - **Ingredient catalogue** in D1 (`shared/catalogue.ts`): canonical bases with aliases and an aisle.
   Every saved ingredient gets a base through catalogue lookup, deterministic rules, or Claude
@@ -65,7 +66,8 @@ normally needs no model call.
 
 The [recipe backfill](docs/DEPLOY.md#ingredient-bases-for-existing-recipes) also enables AI for
 unknown names. It processes existing recipes in pages and can be rerun after AI becomes available.
-A manual aisle move updates the catalogue with origin `user` without calling a model. The MCP
+A "change category" on the shopping list updates the catalogue with origin `user` without calling
+a model; catalogue migrations and the backfill never override it. The MCP
 `set_ingredient` correction re-resolves recipes without AI. User corrections take priority over
 automatic catalogue entries.
 

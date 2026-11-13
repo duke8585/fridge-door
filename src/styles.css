@@ -150,7 +150,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .tag-chip[data-group], .group-tab { border-left: 3px solid var(--g, var(--line)); }
 .tag-group { color: var(--g, var(--muted)); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 0.3rem; }
 .tag-sep { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.group-tab.open { outline: 2px solid var(--g, var(--accent)); outline-offset: -1px; }
+/* the open tab and its values share one tint, so the values read as that group's */
+.group-tab.open { background: color-mix(in srgb, var(--g) 22%, var(--card)); border-color: var(--g); }
+.chips.tray { margin-top: 0.4rem; padding: 0.5rem; border: 1px solid color-mix(in srgb, var(--g) 45%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--g) 12%, transparent); }
 .tag-chip.empty { opacity: 0.45; }
 .tag-option { display: inline-flex; align-items: baseline; }
 .link-button { border: 0; background: none; color: var(--accent); text-decoration: underline; padding: 0.2rem 0.4rem; min-height: 2rem; }

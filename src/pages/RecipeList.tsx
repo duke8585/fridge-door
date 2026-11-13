@@ -116,7 +116,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
         })}
       </div>
       {openGroup === "duration" && (
-        <div id="tag-values" className="chips" role="group" aria-label="Total time">
+        <div id="tag-values" className="chips tray" data-group="duration" role="group" aria-label="Total time">
           {TIME_FILTERS.map((f) => {
             const on = time === f.id;
             const n = timeCounts.get(f.id) ?? 0;
@@ -138,7 +138,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
         </div>
       )}
       {open && (
-        <div id="tag-values" className="chips" role="group" aria-label={`${open.group} tags`}>
+        <div id="tag-values" className="chips tray" data-group={open.group} role="group" aria-label={`${open.group} tags`}>
           {open.tags.map(({ tag }) => {
             const on = selected.has(tag);
             const n = counts.get(tag) ?? 0;

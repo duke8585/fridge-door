@@ -25,7 +25,7 @@ const cardTag = (t: string): string => {
  * Search (title, ingredients, notes, tag values), tag and time filters and the sort run client-side
  * over the cached list, so they work offline. With a search, relevance comes first (title matches,
  * then tags and ingredients, then notes) and the chosen sort orders the recipes within each of those.
- * `bookmarks` (the /bookmarks page, switched by the Bookmarked tab) narrows the list to my bookmarks before all of that.
+ * `bookmarks` (the /bookmarks page, switched by All / Saved above the cards) narrows the list to my bookmarks before all of that.
  */
 export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   const all = useSignal(summaries);
@@ -33,8 +33,9 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   const cat = useSignal(catalogue);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  // "sort" and "duration" are tabs like the tag groups, holding the sort order and the total-time filter
-  const [openGroup, setOpenGroup] = useState<TagGroup | "sort" | "duration" | null>(null);
+  // "duration" is a tab like the tag groups, holding the total-time filter
+  const [openGroup, setOpenGroup] = useState<TagGroup | "duration" | null>(null);
+  const [sortOpen, setSortOpen] = useState(false);
   const [sort, setSort] = useState<Sort>(loadSort);
   const list = useMemo(() => (bookmarks ? all?.filter((r) => r.bookmarks.some((b) => b.user === me)) : all), [all, bookmarks, me]);
   const [time, setTime] = useState<string | null>(null);
@@ -79,34 +80,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
           + New
         </Link>
       </div>
-      <div className="chips tag-groups" role="toolbar" aria-label="Sort, or filter by bookmark, duration or tag group">
-        <button
-          type="button"
-          className={`chip group-tab${bookmarks ? " on" : ""}`}
-          data-group="bookmarked"
-          aria-pressed={bookmarks}
-          aria-label="Bookmarked only"
-          title="Bookmarked only"
-          onClick={() => navigate(bookmarks ? "/" : "/bookmarks", { replace: true })}
-        >
-          <BookmarkIcon filled={bookmarks} />
-        </button>
-        <button
-          type="button"
-          className={`chip group-tab${openGroup === "sort" ? " open" : ""}`}
-          data-group="sort"
-          aria-expanded={openGroup === "sort"}
-          aria-controls="tag-values"
-          onClick={() => setOpenGroup(openGroup === "sort" ? null : "sort")}
-        >
-          <span className="tag-group" data-group="sort">
-            sort
-          </span>
-          <span className="small">
-            {SORTS.find((o) => o.id === sort.id)!.label}
-            {arrow}
-          </span>
-        </button>
+      <div className="chips tag-groups" role="toolbar" aria-label="Filter by duration or tag group">
         <button
           type="button"
           className={`chip group-tab${openGroup === "duration" ? " open" : ""}${time ? " on" : ""}`}
@@ -140,31 +114,6 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
           );
         })}
       </div>
-      {openGroup === "sort" && (
-        <div id="tag-values" className="chips" role="group" aria-label="Sort">
-          {SORTS.map((o) => {
-            const active = sort.id === o.id;
-            return (
-              <button
-                key={o.id}
-                type="button"
-                className={`chip tag-chip${active ? " on" : ""}`}
-                data-group="sort"
-                aria-pressed={active}
-                title={active ? "Click again to reverse" : undefined}
-                onClick={() => {
-                  const next = nextSort(sort, o.id);
-                  setSort(next);
-                  saveSort(next);
-                }}
-              >
-                <span className="tag-value">{o.label}</span>
-                {active && arrow}
-              </button>
-            );
-          })}
-        </div>
-      )}
       {openGroup === "duration" && (
         <div id="tag-values" className="chips" role="group" aria-label="Total time">
           {TIME_FILTERS.map((f) => {
@@ -235,6 +184,45 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
           >
             clear
           </button>
+        </div>
+      )}
+      <div className="list-bar">
+        <div className="segmented" role="group" aria-label="Show">
+          <button type="button" aria-pressed={!bookmarks} onClick={() => bookmarks && navigate("/", { replace: true })}>
+            All
+          </button>
+          <button type="button" aria-pressed={bookmarks} onClick={() => !bookmarks && navigate("/bookmarks", { replace: true })}>
+            <BookmarkIcon filled={bookmarks} />
+            Saved
+          </button>
+        </div>
+        <button type="button" className="link-button sort-toggle" aria-expanded={sortOpen} aria-controls="sort-options" onClick={() => setSortOpen(!sortOpen)}>
+          Sort: <strong>{SORTS.find((o) => o.id === sort.id)!.label}</strong>
+          {arrow}
+        </button>
+      </div>
+      {sortOpen && (
+        <div id="sort-options" className="chips sort-options" role="group" aria-label="Sort">
+          {SORTS.map((o) => {
+            const active = sort.id === o.id;
+            return (
+              <button
+                key={o.id}
+                type="button"
+                className={active ? "chip on" : "chip"}
+                aria-pressed={active}
+                title={active ? "Click again to reverse" : undefined}
+                onClick={() => {
+                  const next = nextSort(sort, o.id);
+                  setSort(next);
+                  saveSort(next);
+                }}
+              >
+                {o.label}
+                {active && arrow}
+              </button>
+            );
+          })}
         </div>
       )}
       {list === undefined && <p className="muted">Loading...</p>}

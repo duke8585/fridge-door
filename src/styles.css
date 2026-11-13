@@ -276,8 +276,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .drawer-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 0.35); z-index: 50; display: flex; align-items: flex-end; }
 .drawer {
   /* Sized against the backdrop (the visible viewport), not vh: on iOS vh ignores the browser toolbars,
-     so an 88vh sheet pinned to the bottom pushed its head (title, close) above the screen. */
-  background: var(--bg); width: 100%; max-height: calc(100% - max(2.5rem, env(safe-area-inset-top))); border-radius: 16px 16px 0 0;
+     so an 88vh sheet pinned to the bottom pushed its head (title, close) above the screen.
+     Always full height so the head sits at the same spot near the top, however short the list. */
+  background: var(--bg); width: 100%; height: calc(100% - max(2.5rem, env(safe-area-inset-top))); border-radius: 16px 16px 0 0;
   display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom);
   animation: up 0.18s ease-out;
 }
@@ -287,7 +288,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 @keyframes up { from { transform: translateY(30%); opacity: 0.5; } }
 @media (min-width: 48rem) {
   .drawer-backdrop { justify-content: flex-end; align-items: stretch; }
-  .drawer { width: 26rem; max-height: none; border-radius: 0; }
+  .drawer { width: 26rem; height: auto; border-radius: 0; }
 }
 
 /* editor */

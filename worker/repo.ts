@@ -4,6 +4,7 @@ import type {
   CoverFocus,
   ImportRecord,
   MetricUnit,
+  Bookmark,
   Rating,
   Recipe,
   RecipeInput,
@@ -69,7 +70,7 @@ const ingredientBases = (sectionsJson: string): string[] => [
   ...new Set((JSON.parse(sectionsJson) as Section[]).flatMap((s) => s.ingredients.flatMap((i) => (i.base ? [i.base] : [])))),
 ];
 
-function rowToRecipe(r: RecipeRow, ratings: Rating[]): Recipe {
+function rowToRecipe(r: RecipeRow, ratings: Rating[], bookmarks: Bookmark[]): Recipe {
   return {
     id: r.id,
     title: r.title,
@@ -84,6 +85,7 @@ function rowToRecipe(r: RecipeRow, ratings: Rating[]): Recipe {
     cover_focus: rowToFocus(r),
     source_ref: nn(r.source_ref),
     ratings,
+    bookmarks,
     updated_at: r.updated_at,
   };
 }
@@ -106,15 +108,17 @@ function rowToShopping(r: ShoppingRow): ShoppingItem {
 }
 
 export async function listRecipes(db: D1Database): Promise<RecipeSummary[]> {
-  const { results } = await db
-    .prepare(
+  const [rec, bm] = await db.batch([
+    db.prepare(
       `SELECT r.id, r.title, r.tags_json, r.sections_json, r.notes_md, r.yield_amount, r.yield_unit, r.time_total_min, r.time_active_min, r.cover_key, r.cover_focus_x, r.cover_focus_y, r.created_at, r.updated_at,
               AVG(g.stars) AS avg_rating, COUNT(g.stars) AS rating_count
          FROM recipes r LEFT JOIN ratings g ON g.recipe_id = r.id
         GROUP BY r.id ORDER BY r.title COLLATE NOCASE`,
-    )
-    .all<RecipeRow & { avg_rating: number | null; rating_count: number }>();
-  return results.map((r) => ({
+    ),
+    db.prepare("SELECT recipe_id, user, created_at AS at FROM bookmarks ORDER BY user"),
+  ]);
+  const bookmarks = bookmarksByRecipe(bm!.results as (Bookmark & { recipe_id: string })[]);
+  return (rec!.results as (RecipeRow & { avg_rating: number | null; rating_count: number })[]).map((r) => ({
     id: r.id,
     title: r.title,
     tags: JSON.parse(r.tags_json) as string[],
@@ -127,19 +131,27 @@ export async function listRecipes(db: D1Database): Promise<RecipeSummary[]> {
     cover_focus: rowToFocus(r),
     avg_rating: r.avg_rating === null ? null : Math.round(r.avg_rating * 10) / 10,
     rating_count: r.rating_count,
+    bookmarks: bookmarks.get(r.id) ?? [],
     created_at: r.created_at,
     updated_at: r.updated_at,
   }));
 }
 
+function bookmarksByRecipe(rows: readonly (Bookmark & { recipe_id: string })[]): Map<string, Bookmark[]> {
+  const out = new Map<string, Bookmark[]>();
+  for (const b of rows) out.set(b.recipe_id, [...(out.get(b.recipe_id) ?? []), { user: b.user, at: b.at }]);
+  return out;
+}
+
 export async function getRecipe(db: D1Database, id: string): Promise<Recipe | null> {
-  const [rec, rat] = await db.batch([
+  const [rec, rat, bm] = await db.batch([
     db.prepare("SELECT * FROM recipes WHERE id = ?").bind(id),
     db.prepare("SELECT user, stars FROM ratings WHERE recipe_id = ? ORDER BY user").bind(id),
+    db.prepare("SELECT user, created_at AS at FROM bookmarks WHERE recipe_id = ? ORDER BY user").bind(id),
   ]);
   const row = (rec!.results as RecipeRow[])[0];
   if (!row) return null;
-  return rowToRecipe(row, rat!.results as Rating[]);
+  return rowToRecipe(row, rat!.results as Rating[], bm!.results as Bookmark[]);
 }
 
 export async function listComments(db: D1Database, recipeId: string): Promise<Comment[]> {
@@ -208,13 +220,16 @@ export type IndexedRecipe = {
   bases: string[];
   notes_md: string;
   ratings: Rating[];
+  bookmarks: Bookmark[];
 };
 
 export async function recipeIndex(db: D1Database): Promise<IndexedRecipe[]> {
-  const [rec, rat] = await db.batch([
+  const [rec, rat, bm] = await db.batch([
     db.prepare("SELECT id, title, tags_json, time_total_min, source_url, cover_key, sections_json, notes_md FROM recipes ORDER BY title COLLATE NOCASE"),
     db.prepare("SELECT recipe_id, user, stars FROM ratings ORDER BY user"),
+    db.prepare("SELECT recipe_id, user, created_at AS at FROM bookmarks ORDER BY user"),
   ]);
+  const bookmarks = bookmarksByRecipe(bm!.results as (Bookmark & { recipe_id: string })[]);
   const ratings = new Map<string, Rating[]>();
   for (const r of rat!.results as (Rating & { recipe_id: string })[]) {
     ratings.set(r.recipe_id, [...(ratings.get(r.recipe_id) ?? []), { user: r.user, stars: r.stars }]);
@@ -230,6 +245,7 @@ export async function recipeIndex(db: D1Database): Promise<IndexedRecipe[]> {
     bases: ingredientBases(r.sections_json),
     notes_md: r.notes_md,
     ratings: ratings.get(r.id) ?? [],
+    bookmarks: bookmarks.get(r.id) ?? [],
   }));
 }
 
@@ -446,6 +462,14 @@ export async function setRating(db: D1Database, recipeId: string, user: User, st
     )
     .bind(recipeId, user, stars, now)
     .run();
+}
+
+/** Idempotent: saving again keeps the first `created_at`, removing a missing bookmark does nothing. */
+export async function setBookmark(db: D1Database, recipeId: string, user: User, on: boolean, now: string): Promise<void> {
+  const stmt = on
+    ? db.prepare("INSERT INTO bookmarks (recipe_id, user, created_at) VALUES (?, ?, ?) ON CONFLICT(recipe_id, user) DO NOTHING").bind(recipeId, user, now)
+    : db.prepare("DELETE FROM bookmarks WHERE recipe_id = ? AND user = ?").bind(recipeId, user);
+  await stmt.run();
 }
 
 export async function getComment(db: D1Database, id: string): Promise<Comment | null> {

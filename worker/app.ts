@@ -120,6 +120,15 @@ app.put("/recipes/:id/rating", async (c) => {
   return c.json(await repo.getRecipe(c.env.DB, id));
 });
 
+app.put("/recipes/:id/bookmark", async (c) => {
+  const id = c.req.param("id");
+  if (!(await repo.recipeExists(c.env.DB, id))) return c.json({ error: "not_found" }, 404);
+  const body = await parseBody(c, z.object({ on: z.boolean() }));
+  if (!body.ok) return body.res;
+  await repo.setBookmark(c.env.DB, id, c.get("user"), body.data.on, now());
+  return c.json(await repo.getRecipe(c.env.DB, id));
+});
+
 /** Delta, not replace: `{add?, remove?}`. Adding an existing tag / removing a missing one is a no-op. */
 app.patch("/recipes/:id/tags", async (c) => {
   const id = c.req.param("id");

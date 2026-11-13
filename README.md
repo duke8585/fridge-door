@@ -19,8 +19,8 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
 - **Scaling** by servings or by factor, with per-unit rounding and g/ml promoted to kg/l.
 - **Cooking mode**: bigger text, screen kept awake, tap to tick off steps and ingredients.
 - **Ratings and comments** per person, markdown comments with preview.
-- **Bookmarks** per person: tap the bookmark on a card or a recipe. The header's bookmark opens yours,
-  newest saved first, with search and filters. Bookmarked recipes open offline, and an import offers to
+- **Bookmarks** per person: tap the bookmark on a card or a recipe. The Bookmarked tab next to the tag
+  groups shows yours, newest saved first, with search and filters. Bookmarked recipes open offline, and an import offers to
   bookmark the new recipe.
 - **Tags** in groups (`course:main`, `cuisine:thai`, `list:next-up`, ...), defined once in
   `shared/tags.ts`. The list filters by group and searches titles, ingredients, tags and notes.

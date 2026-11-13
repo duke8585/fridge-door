@@ -108,7 +108,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   .app-header .brand { flex-basis: calc(100% - 6rem); }
   .app-header .sync { order: 1; margin-right: auto; }
   .app-header .who { order: 2; }
-  .app-header .bookmarks-link, .app-header .cart { order: 3; }
+  .app-header .cart { order: 3; }
   .app-header .sync-rejected { order: 4; }
 }
 .app-header .who { display: inline-flex; align-items: center; gap: 0.2rem; }
@@ -138,6 +138,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .chip.on { background: var(--accent-soft); border-color: var(--accent); }
 .chip button { border: 0; background: none; padding: 0 0.2rem; min-height: auto; }
 /* tags: "group value", the group as a small coloured label and a matching left edge */
+[data-group="bookmarked"] { --g: var(--accent); }
 [data-group="duration"] { --g: var(--g-duration); }
 [data-group="course"] { --g: var(--g-course); }
 [data-group="cuisine"] { --g: var(--g-cuisine); }
@@ -180,7 +181,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 .bookmark-button:hover { color: var(--fg); }
 .bookmark-button[aria-pressed="true"] { color: var(--accent); }
 .recipe-list .bookmark-button { position: absolute; top: 0.35rem; right: 0.35rem; background: color-mix(in srgb, var(--card) 88%, transparent); }
-.app-header .bookmarks-link.on { color: var(--accent); }
 .title-row { display: flex; align-items: center; gap: 0.5rem; }
 .title-row h1 { flex: 1; min-width: 0; }
 .saved-by { margin: -0.25rem 0 0; }

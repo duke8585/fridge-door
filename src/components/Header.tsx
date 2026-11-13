@@ -1,12 +1,11 @@
 import { useEffect, useRef } from "react";
-import { Link, usePath } from "../lib/router";
+import { Link } from "../lib/router";
 import { useSignal } from "../lib/signal";
 import { currentUser, forgetUser, userKnown } from "../lib/user";
 import { pendingCount } from "../store/outbox";
 import { loginHref } from "../lib/api";
 import { dismissRejected, rejected, syncStatus } from "../store/sync";
 import { theme, toggleTheme } from "../lib/theme";
-import { BookmarkIcon } from "./BookmarkButton";
 import { useUncheckedCount } from "./ShoppingList";
 
 export function Header({ onOpenShopping }: { onOpenShopping: () => void }) {
@@ -17,8 +16,6 @@ export function Header({ onOpenShopping }: { onOpenShopping: () => void }) {
   const status = useSignal(syncStatus);
   const pending = useSignal(pendingCount);
   const count = useUncheckedCount();
-  const onBookmarks = usePath().split("?")[0] === "/bookmarks";
-  const bookmarksLabel = onBookmarks ? "All recipes" : "Bookmarks";
   const rej = useSignal(rejected);
   const ref = useRef<HTMLElement>(null);
   // Publish the header's height (it wraps to two rows on phones) so sticky bars below it can sit flush.
@@ -68,15 +65,6 @@ export function Header({ onOpenShopping }: { onOpenShopping: () => void }) {
           log out
         </button>
       </form>
-      <Link
-        href={onBookmarks ? "/" : "/bookmarks"}
-        className={`header-icon bookmarks-link${onBookmarks ? " on" : ""}`}
-        aria-label={bookmarksLabel}
-        title={bookmarksLabel}
-        aria-current={onBookmarks ? "page" : undefined}
-      >
-        <BookmarkIcon filled={onBookmarks} />
-      </Link>
       <button type="button" className="cart" onClick={onOpenShopping} aria-label="Shopping list">
         🛒{count > 0 && <span className="badge">{count}</span>}
       </button>

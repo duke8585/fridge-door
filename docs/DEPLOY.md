@@ -139,11 +139,15 @@ npx wrangler secret put GOOGLE_CLIENT_ID -c wrangler.jsonc
 npx wrangler secret put GOOGLE_CLIENT_SECRET -c wrangler.jsonc
 npx wrangler secret put GITHUB_CLIENT_ID -c wrangler.jsonc
 npx wrangler secret put GITHUB_CLIENT_SECRET -c wrangler.jsonc
-openssl rand -base64 32 | tr -d '\n' | npx wrangler secret put IMPORT_TOKEN -c wrangler.jsonc
+npm run import-token -- prod     # generates IMPORT_TOKEN, sets it, keeps a copy (see below)
 npx wrangler secret put ANTHROPIC_API_KEY -c wrangler.jsonc
 ```
 
 `wrangler secret put` prompts for the value, or reads it from stdin (`< file`).
+
+Cloudflare never shows a secret again, so `npm run import-token -- prod|stg` keeps the IMPORT_TOKEN
+it generates in `~/.config/fridge-door/import-token-<env>` (mode 600, outside the repo so it
+cannot be committed). Rerun it to rotate; the old token stops working.
 `scripts/set-prod-secrets.sh` does the same for production from files, without printing anything:
 
 ```sh
@@ -267,13 +271,13 @@ the catalogue does not know, when `ANTHROPIC_API_KEY` is set) and writes only th
 revision and without changing `updated_at`:
 
 ```sh
-curl -X PUT -H "Authorization: Bearer <IMPORT_TOKEN of that env>" https://<your domain>/api/catalogue/backfill
+npm run backfill -- prod    # or stg; walks every page with the stored token
 ```
 
 It is idempotent: rerun it after a key was added or the credits were topped up, and it converges on
 the new answers. The first request (no cursor) also places every live shopping row again and writes the ones whose
 base or aisle moved, with a newer `updated_at` so phones pick them up. It answers
-`{ recipes, updated, shopping, items, unknown, nextCursor }`. Each request processes at most 50 recipes. Repeat with `?cursor=<URL-encoded nextCursor>` until `nextCursor` is null; restart without a cursor after enabling AI or correcting aliases. `unknown` counts the names that
+`{ recipes, updated, shopping, items, unknown, nextCursor }`. Each request processes at most 50 recipes; the script follows `nextCursor` until it is null. Rerun without a cursor after enabling AI or correcting aliases. `unknown` counts the names that
 kept a rule-based base. Review what the model added with the MCP tool `list_ingredients` (origin
 `auto`) and correct it with `set_ingredient`.
 
@@ -283,7 +287,7 @@ kept a rule-based base. Review what the model added with the MCP tool `list_ingr
 deployment, using `IMPORT_TOKEN`:
 
 ```sh
-RECIPES_IMPORT_TOKEN=<IMPORT_TOKEN of that env> npm run load-import -- https://<your domain> <records dir> <images dir> [id ...]
+RECIPES_IMPORT_TOKEN="$(cat ~/.config/fridge-door/import-token-prod)" npm run load-import -- https://<your domain> <records dir> <images dir> [id ...]
 ```
 
 It is idempotent: an unchanged record writes nothing, and a cover uploads only when its content

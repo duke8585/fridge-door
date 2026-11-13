@@ -181,7 +181,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 .recipe-list .title { font-weight: 600; line-height: 1.25; }
 .recipe-list .meta { display: flex; flex-wrap: wrap; gap: 0.1rem 0.6rem; font-size: 0.85rem; }
 .recipe-list .tags { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.recipe-list .modified { color: var(--muted); margin-top: auto; padding-top: 0.2rem; }
+.recipe-list .card-body { flex: 1; display: flex; flex-direction: column; }
+.recipe-list .modified { color: var(--muted); margin-top: auto; padding-top: 0.3rem; font-size: 0.75rem; font-style: italic; }
 .recipe-dates { margin-top: 2rem; text-align: center; }
 .avg-stars { color: var(--warn); }
 .bookmark-button { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2.5rem; height: 2.5rem; min-height: 0; padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--muted); }

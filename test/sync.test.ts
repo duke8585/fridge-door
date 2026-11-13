@@ -78,7 +78,7 @@ describe("groupShopping", () => {
 
 describe("applyOp (optimistic recipe ops)", () => {
   const detail: RecipeDetail = {
-    recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: ["a"], ratings: [{ user: "partner", stars: 3 }], updated_at: "", cover_focus: null },
+    recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: ["a"], ratings: [{ user: "partner", stars: 3 }], bookmarks: [], updated_at: "", cover_focus: null },
     comments: [],
   };
   it("is idempotent for rating replays", () => {
@@ -117,7 +117,7 @@ describe("tag deltas", () => {
     const server1 = applyTagDelta(server0, add("list:quick")); // B's PATCH lands first
     // A revalidates while its op is still pending: the fresh server copy plus the pending op shows both.
     const fresh: RecipeDetail = {
-      recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: server1, ratings: [], updated_at: "", cover_focus: null },
+      recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: server1, ratings: [], bookmarks: [], updated_at: "", cover_focus: null },
       comments: [],
     };
     expect(applyOp(fresh, offlineOp).recipe.tags).toEqual(["course:main", "list:quick", "diet:vegan"]);
@@ -133,7 +133,7 @@ describe("tag deltas", () => {
 describe("ops queued by a build from before the tag groups", () => {
   it("apply with the current names, so a cached recipe never shows a loose tag", () => {
     const d: RecipeDetail = {
-      recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: ["course:main", "list:next-up"], ratings: [], updated_at: "", cover_focus: null },
+      recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: ["course:main", "list:next-up"], ratings: [], bookmarks: [], updated_at: "", cover_focus: null },
       comments: [],
     };
     const old: OutboxOp = { kind: "tags.delta", recipe_id: "r", user: "max", add: ["vegan"], remove: ["next-up"] };
@@ -143,7 +143,7 @@ describe("ops queued by a build from before the tag groups", () => {
 
 describe("applyOpToSummary (library list follows local edits)", () => {
   const s: RecipeSummary = {
-    id: "r", title: "R", tags: ["course:main"], ingredients: [], notes_md: "", cover_focus: null, avg_rating: null, rating_count: 0,
+    id: "r", title: "R", tags: ["course:main"], ingredients: [], notes_md: "", cover_focus: null, avg_rating: null, rating_count: 0, bookmarks: [],
     created_at: "2026-11-01T00:00:00.000Z", updated_at: "2026-11-05T00:00:00.000Z",
   };
   it("a tag or crop edit moves updated_at to the edit time, never backwards", () => {
@@ -156,5 +156,39 @@ describe("applyOpToSummary (library list follows local edits)", () => {
   it("leaves other recipes and other ops alone", () => {
     expect(applyOpToSummary(s, { kind: "tags.delta", recipe_id: "other", user: "max", add: ["diet:vegan"], remove: [] })).toBe(s);
     expect(applyOpToSummary(s, { kind: "rating", recipe_id: "r", user: "max", stars: 5 })).toBe(s);
+  });
+});
+
+describe("bookmark ops", () => {
+  const T = "2026-11-09T10:00:00.000Z";
+  const updated = "2026-11-05T00:00:00.000Z";
+  const on = { kind: "bookmark", recipe_id: "r", user: "max", on: true, at: T } as const;
+  const off = { ...on, on: false } as const;
+  const detail: RecipeDetail = {
+    recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: [], ratings: [], bookmarks: [{ user: "partner", at: "2026-11-01T00:00:00.000Z" }], updated_at: updated, cover_focus: null },
+    comments: [],
+  };
+  const summary: RecipeSummary = {
+    id: "r", title: "R", tags: [], ingredients: [], notes_md: "", cover_focus: null, avg_rating: null, rating_count: 0, bookmarks: [],
+    created_at: "2026-11-01T00:00:00.000Z", updated_at: updated,
+  };
+
+  it("adds and removes only the user's entry, without moving updated_at", () => {
+    const saved = applyOp(detail, on);
+    expect(saved.recipe.bookmarks).toEqual([{ user: "max", at: T }, { user: "partner", at: "2026-11-01T00:00:00.000Z" }]);
+    expect(saved.recipe.updated_at).toBe(updated);
+    const removed = applyOp(saved, off);
+    expect(removed.recipe.bookmarks).toEqual(detail.recipe.bookmarks);
+    expect(removed.recipe.updated_at).toBe(updated);
+  });
+  it("replays are idempotent and keep the first time", () => {
+    const once = applyOp(detail, on);
+    expect(applyOp(once, { ...on, at: "2026-11-10T00:00:00.000Z" })).toEqual(once);
+    expect(applyOp(applyOp(detail, off), off)).toEqual(applyOp(detail, off));
+  });
+  it("patches the library row the same way", () => {
+    const row = applyOpToSummary(summary, on);
+    expect(row).toEqual({ ...summary, bookmarks: [{ user: "max", at: T }] });
+    expect(applyOpToSummary(row, off)).toEqual(summary);
   });
 });

@@ -109,6 +109,9 @@ async function pushOne(op: QueuedOp): Promise<void> {
       case "rating":
         await api(`/recipes/${op.recipe_id}/rating`, { method: "PUT", json: { stars: op.stars } });
         break;
+      case "bookmark":
+        await api(`/recipes/${op.recipe_id}/bookmark`, { method: "PUT", json: { on: op.on } });
+        break;
       case "tags.delta":
         await api(`/recipes/${op.recipe_id}/tags`, { method: "PATCH", json: { add: op.add.map(upgradeTag), remove: op.remove.map(upgradeTag) } });
         break;
@@ -140,6 +143,8 @@ function describeOp(op: QueuedOp): string {
   switch (op.kind) {
     case "rating":
       return "Rating";
+    case "bookmark":
+      return "Bookmark";
     case "tags.delta":
       return "Tag change";
     case "cover.focus":

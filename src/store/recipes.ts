@@ -15,7 +15,13 @@ export const summaries = signal<RecipeSummary[] | undefined>(undefined);
  * A list cached by an older build may lack the search fields and still have tags from before the
  * groups; it is shown upgraded until the fresh list arrives.
  */
-const fromCache = (r: RecipeSummary): RecipeSummary => ({ ...r, tags: upgradeTags(r.tags), ingredients: r.ingredients ?? [], notes_md: r.notes_md ?? "" });
+const fromCache = (r: RecipeSummary): RecipeSummary => ({
+  ...r,
+  tags: upgradeTags(r.tags),
+  ingredients: r.ingredients ?? [],
+  notes_md: r.notes_md ?? "",
+  bookmarks: r.bookmarks ?? [],
+});
 
 export async function loadSummaries(): Promise<void> {
   const cached = await kvGet<RecipeSummary[]>("summaries");
@@ -69,7 +75,7 @@ export async function loadRecipe(id: string): Promise<void> {
   const s = detailSignal(id);
   if (!s.get().detail) {
     const cached = await (await db()).get("recipes", id);
-    if (cached) s.set({ detail: await withPending({ ...cached, recipe: { ...cached.recipe, tags: upgradeTags(cached.recipe.tags) } }) });
+    if (cached) s.set({ detail: await withPending({ ...cached, recipe: { ...cached.recipe, tags: upgradeTags(cached.recipe.tags), bookmarks: cached.recipe.bookmarks ?? [] } }) });
   }
   await refreshRecipe(id);
 }
@@ -131,7 +137,7 @@ async function mutate(id: string, op: OutboxOp): Promise<void> {
   await enqueue(op);
 }
 
-/** The library list follows local edits at once (tags, crop, modified time, rating), also offline. */
+/** The library list follows local edits at once (tags, crop, modified time, rating, bookmark), also offline. */
 function patchSummary(id: string, patch: (r: RecipeSummary) => RecipeSummary): void {
   const list = summaries.get();
   if (list?.some((r) => r.id === id)) summaries.set(list.map((r) => (r.id === id ? patch(r) : r)));
@@ -140,6 +146,8 @@ function patchSummary(id: string, patch: (r: RecipeSummary) => RecipeSummary): v
 export const rate = (id: string, user: User, stars: Stars): Promise<void> => mutate(id, { kind: "rating", recipe_id: id, user, stars });
 
 const nowIso = (): string => new Date().toISOString();
+
+export const setBookmark = (id: string, user: User, on: boolean): Promise<void> => mutate(id, { kind: "bookmark", recipe_id: id, user, on, at: nowIso() });
 
 export const addTag = (id: string, user: User, tag: string): Promise<void> =>
   mutate(id, { kind: "tags.delta", recipe_id: id, user, add: [tag], remove: [], at: nowIso() });

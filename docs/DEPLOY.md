@@ -261,6 +261,26 @@ risky migration, note a D1 restore point with `npx wrangler d1 time-travel info 
 Clients update themselves: the service worker fetches the new build and the next page load uses
 it. Older clients and their offline queues keep syncing, since new fields are optional.
 
+## Renaming storage
+
+D1 databases and R2 buckets cannot be renamed. To move to a new name, copy the data into new
+storage and point the Worker at it. This is how the old `recipes-spa` database and bucket became
+`fridge-door` and `fridge-door-covers`:
+
+1. Note a restore point and the row count of every table on the old database
+   (`npx wrangler d1 time-travel info <old>`).
+2. Create the new database and bucket (step 1 above), then copy every bucket object with its
+   `contentType` and compare key, type and etag on both sides.
+3. `npx wrangler d1 export <old> --remote --output dump.sql`, then
+   `npx wrangler d1 execute <new> --remote --file dump.sql`. The dump includes `d1_migrations`, so
+   `db:migrate:remote` has nothing left to apply. Compare row counts.
+4. Put the new `database_name`, `database_id` and `bucket_name` in `wrangler.jsonc`, then `npm run deploy`.
+5. Check that the old database's time-travel bookmark has not moved since the export, which means
+   it took no writes during the switch. Then delete the old database and bucket.
+
+The browser keeps its own local database (IndexedDB). `src/store/idb.ts` copies one under the old
+name into the new name once and then deletes it, so offline edits that have not synced survive.
+
 ## Ingredient bases
 
 Migrations 0008 and 0009 add the ingredient catalogue with a starter set and its change generation.

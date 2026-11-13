@@ -18,6 +18,7 @@ export function usePath(): string {
 
 export type Route =
   | { name: "list" }
+  | { name: "bookmarks" }
   | { name: "new"; importToken?: string }
   | { name: "import" }
   | { name: "recipe"; id: string }
@@ -30,6 +31,7 @@ export function matchRoute(full: string): Route {
   const [pathPart, query = ""] = full.split("?");
   const p = pathPart!.replace(/\/+$/, "") || "/";
   if (p === "/") return { name: "list" };
+  if (p === "/bookmarks") return { name: "bookmarks" };
   if (p === "/shopping") return { name: "shopping" };
   if (p === "/import") return { name: "import" };
   if (p === "/recipes/new") return { name: "new", importToken: new URLSearchParams(query).get("import") ?? undefined };

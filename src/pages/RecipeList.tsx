@@ -3,14 +3,16 @@ import { coverUrl, focusPosition } from "../../shared/cover";
 import { searchRecipes } from "../../shared/search";
 import { parseTag, type TagGroup } from "../../shared/tags";
 import { formatMinutes, matchesTimeFilter, TIME_FILTERS } from "../../shared/time";
+import { BookmarkButton, BookmarkIcon } from "../components/BookmarkButton";
 import { AvgStars } from "../components/Stars";
 import { TagChip } from "../components/TagChip";
-import { compareRecipes, loadSort, nextSort, saveSort, SORTS, type Sort } from "../lib/recipeSort";
+import { BOOKMARKS_SORT, compareRecipes, loadSort, nextSort, SAVED_SORT, saveSort, SORTS, type Sort } from "../lib/recipeSort";
 import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
-import { Link } from "../lib/router";
+import { Link, navigate } from "../lib/router";
 import { useSignal } from "../lib/signal";
+import { currentUser } from "../lib/user";
 import { catalogue } from "../store/catalogue";
-import { loadSummaries, recentlyCached, summaries } from "../store/recipes";
+import { loadSummaries, recentlyCached, setBookmark, summaries } from "../store/recipes";
 
 /** Shown on the cards as the value alone; the other groups keep their prefix so "todo:method" is not read as a method. */
 const CARD_VALUE_ONLY: ReadonlySet<TagGroup> = new Set(["course", "cuisine", "method", "diet"]);
@@ -23,15 +25,22 @@ const cardTag = (t: string): string => {
  * Search (title, ingredients, notes, tag values), tag and time filters and the sort run client-side
  * over the cached list, so they work offline. With a search, relevance comes first (title matches,
  * then tags and ingredients, then notes) and the chosen sort orders the recipes within each of those.
+ * `bookmarks` (the /bookmarks page) narrows the list to my bookmarks before all of that; it is the same
+ * component, so search and filters survive switching with the Bookmarked chip.
  */
-export function RecipeList() {
-  const list = useSignal(summaries);
+export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
+  const all = useSignal(summaries);
+  const me = useSignal(currentUser);
   const cat = useSignal(catalogue);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // "duration" is a tab like the tag groups, holding the total-time filter
   const [openGroup, setOpenGroup] = useState<TagGroup | "duration" | null>(null);
-  const [sort, setSort] = useState<Sort>(loadSort);
+  const [listSort, setListSort] = useState<Sort>(loadSort);
+  // /bookmarks starts on "Saved" and keeps its own sort, so the remembered list sort is left alone
+  const [savedSort, setSavedSort] = useState<Sort>(BOOKMARKS_SORT);
+  const sort = bookmarks ? savedSort : listSort;
+  const list = useMemo(() => (bookmarks ? all?.filter((r) => r.bookmarks.some((b) => b.user === me)) : all), [all, bookmarks, me]);
   const [time, setTime] = useState<string | null>(null);
   const [cached, setCached] = useState<Set<string>>(new Set());
 
@@ -51,8 +60,8 @@ export function RecipeList() {
     return new Map(TIME_FILTERS.map((f) => [f.id, tagged.filter((r) => matchesTimeFilter(r.time, f.id)).length]));
   }, [searched, selected]);
   const shown = useMemo(
-    () => searchRecipes(base.filter((r) => matchesTagFilter(r.tags, selected)).sort(compareRecipes(sort)), q, cat),
-    [base, q, selected, sort, cat],
+    () => searchRecipes(base.filter((r) => matchesTagFilter(r.tags, selected)).sort(compareRecipes(sort, me)), q, cat),
+    [base, q, selected, sort, cat, me],
   );
   const toggle = (t: string): void =>
     setSelected((s) => {
@@ -75,7 +84,7 @@ export function RecipeList() {
       </div>
       <div className="list-controls">
         <div className="chips" role="group" aria-label="Sort">
-          {SORTS.map((o) => {
+          {(bookmarks ? [SAVED_SORT, ...SORTS] : SORTS).map((o) => {
             const active = sort.id === o.id;
             return (
               <button
@@ -86,8 +95,11 @@ export function RecipeList() {
                 title={active ? "Click again to reverse" : undefined}
                 onClick={() => {
                   const next = nextSort(sort, o.id);
-                  setSort(next);
-                  saveSort(next);
+                  if (bookmarks) setSavedSort(next);
+                  else {
+                    setListSort(next);
+                    saveSort(next);
+                  }
                 }}
               >
                 {o.label}
@@ -97,7 +109,11 @@ export function RecipeList() {
           })}
         </div>
       </div>
-      <div className="chips tag-groups" role="toolbar" aria-label="Filter by duration or tag group">
+      <div className="chips tag-groups" role="toolbar" aria-label="Filter by bookmark, duration or tag group">
+        <button type="button" className={bookmarks ? "chip on" : "chip"} aria-pressed={bookmarks} onClick={() => navigate(bookmarks ? "/" : "/bookmarks", { replace: true })}>
+          <BookmarkIcon filled={bookmarks} />
+          Bookmarked
+        </button>
         <button
           type="button"
           className={`chip group-tab${openGroup === "duration" ? " open" : ""}${time ? " on" : ""}`}
@@ -237,10 +253,13 @@ export function RecipeList() {
                 <span className="tags small">{r.tags.map(cardTag).join(" · ")}</span>
               </span>
             </Link>
+            <BookmarkButton on={r.bookmarks.some((b) => b.user === me)} onToggle={() => void setBookmark(r.id, me, !r.bookmarks.some((b) => b.user === me))} />
           </li>
         ))}
       </ul>
-      {list && shown.length === 0 && <p className="muted">No recipes match.</p>}
+      {list && shown.length === 0 && (
+        <p className="muted">{bookmarks && list.length === 0 ? "Nothing bookmarked yet. Tap the bookmark on a recipe to keep it here." : "No recipes match."}</p>
+      )}
     </main>
   );
 }

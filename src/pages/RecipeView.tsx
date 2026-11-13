@@ -5,6 +5,7 @@ import { coverUrl, focusPosition } from "../../shared/cover";
 import { formatTime } from "../../shared/time";
 import { factorForYield, formatNumber, formatQty, scaleIngredient, spoonInMl } from "../../shared/scale";
 import { ingredientsToShopping, nextTimestamp } from "../../shared/shopping";
+import { BookmarkButton } from "../components/BookmarkButton";
 import { Markdown, splitSteps } from "../components/Markdown";
 import { recipeToText, shareText, type ShareResult } from "../lib/shareText";
 import { StarsInput } from "../components/Stars";
@@ -14,7 +15,7 @@ import { MAX_FACTOR, parseFactor, readScale, writeScale } from "../lib/scalePara
 import { useSignal } from "../lib/signal";
 import { currentUser } from "../lib/user";
 import { loginHref } from "../lib/api";
-import { addTag, deleteComment, detailSignal, loadRecipe, putComment, rate, removeTag, type LoadError } from "../store/recipes";
+import { addTag, deleteComment, detailSignal, loadRecipe, putComment, rate, removeTag, setBookmark, type LoadError } from "../store/recipes";
 import { catalogue } from "../store/catalogue";
 import { addShoppingItems } from "../store/shopping";
 import { openRecipes } from "../store/sync";
@@ -124,6 +125,8 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
   );
   const steps = useMemo(() => splitSteps(recipe.steps_md), [recipe.steps_md]);
   const mine = recipe.ratings.find((r) => r.user === user)?.stars;
+  const bookmarked = recipe.bookmarks.some((b) => b.user === user);
+  const savedBy = recipe.bookmarks.filter((b) => b.user !== user).map((b) => b.user);
   // Imported stubs have no ingredients and/or no steps yet: show what exists and point at the source.
   const hasIngredients = recipe.sections.some((s) => s.ingredients.length > 0);
   const hasSteps = recipe.steps_md.trim() !== "";
@@ -152,7 +155,11 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
           </button>
         )}
         {recipe.cover_key && fullCover && <Lightbox src={coverUrl(recipe.cover_key)} onClose={() => setFullCover(false)} />}
-        <h1>{recipe.title}</h1>
+        <div className="title-row">
+          <h1>{recipe.title}</h1>
+          <BookmarkButton on={bookmarked} onToggle={() => void setBookmark(recipe.id, user, !bookmarked)} />
+        </div>
+        {savedBy.length > 0 && <p className="muted small saved-by">{savedBy.join(" and ")} saved this</p>}
         {recipe.time && <p className="muted time">{formatTime(recipe.time)}</p>}
         <div className="row wrap gap">
           {(hasIngredients || hasSteps) && (

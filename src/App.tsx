@@ -26,7 +26,7 @@ export function App() {
           else navigate("/shopping");
         }}
       />
-      {route.name === "list" && <RecipeList />}
+      {(route.name === "list" || route.name === "bookmarks") && <RecipeList bookmarks={route.name === "bookmarks"} />}
       {route.name === "recipe" && <RecipeView key={route.id} id={route.id} />}
       {route.name === "edit" && <RecipeEditor key={`edit-${route.id}`} id={route.id} />}
       {route.name === "history" && <RecipeHistory key={`history-${route.id}`} id={route.id} />}

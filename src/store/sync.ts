@@ -8,7 +8,9 @@ import { applyRemoteAisleOrder } from "./aisles";
 import { refreshCatalogue } from "./catalogue";
 import { kvGet, kvSet, type QueuedOp } from "./idb";
 import { allOps, onEnqueue, refreshPending, removeOps } from "./outbox";
-import { cacheRecipes, refreshOpenRecipes } from "./recipes";
+import { recipesToKeep } from "../lib/offlineRecipes";
+import { currentUser } from "../lib/user";
+import { cacheRecipes, loadSummaries, refreshOpenRecipes, summaries } from "./recipes";
 import { applyRemoteShopping, shopping } from "./shopping";
 
 /** `authRequired`: the server answered 401 (session expired); ops stay queued until login. */
@@ -30,6 +32,7 @@ export function dismissRejected(): void {
 
 const POLL_MS = 4000;
 const RECIPE_POLL_EVERY = 3; // recipes every 3rd tick (~12 s)
+const LIST_POLL_EVERY = 30; // the library list every 30th tick (~2 min): it carries the bookmarks to keep offline
 
 /** Recipe ids with a mounted view; the poller refreshes these. */
 export const openRecipes = new Set<string>();
@@ -176,9 +179,10 @@ export function startSync(): void {
     await syncNow();
     if (++tick % RECIPE_POLL_EVERY !== 0 || !syncStatus.get().online) return;
     await refreshOpenRecipes(openRecipes);
-    // the recipes on the shopping list must open offline in the shop, also when added on another device
+    if (tick % LIST_POLL_EVERY === 0 || !summaries.get()) await loadSummaries();
+    // the recipes on the shopping list and the bookmarked ones must open offline, also when added on another device
     const onList = [...shopping.get().values()].flatMap((i) => (!i.deleted && i.recipe_id ? [i.recipe_id] : []));
-    await cacheRecipes(onList).catch((e: unknown) => console.warn("caching list recipes failed", e));
+    await cacheRecipes(recipesToKeep(onList, summaries.get(), currentUser.get())).catch((e: unknown) => console.warn("caching offline recipes failed", e));
   };
   setInterval(() => void poll(), POLL_MS);
   window.addEventListener("online", () => void syncNow());

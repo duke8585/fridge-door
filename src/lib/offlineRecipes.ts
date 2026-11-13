@@ -1,3 +1,5 @@
+import type { RecipeSummary, User } from "../../shared/schema";
+
 /**
  * Which recipes on the shopping list to fetch so they open offline in the shop: the ones this
  * device has not cached, and the ones the library list shows in a newer version than the cache.
@@ -17,4 +19,13 @@ export function recipesToCache(
     if (have === undefined || (latest !== undefined && latest > have)) out.push(id);
   }
   return out;
+}
+
+/**
+ * The recipes that should open offline: the ones on the shopping list and the ones I bookmarked.
+ * `list` is the library list, undefined until it has loaded (then only the shopping list counts).
+ */
+export function recipesToKeep(onList: Iterable<string>, list: readonly Pick<RecipeSummary, "id" | "bookmarks">[] | undefined, me: User): string[] {
+  const mine = (list ?? []).filter((r) => r.bookmarks.some((b) => b.user === me)).map((r) => r.id);
+  return [...new Set([...onList, ...mine])];
 }

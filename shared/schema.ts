@@ -111,13 +111,14 @@ export type CoverFocus = z.infer<typeof CoverFocusSchema>;
 export const CoverFocusPatchSchema = z.object({ cover_focus: CoverFocusSchema.nullable() });
 
 export type Rating = { user: User; stars: Stars };
-/** `at` is when `user` saved the recipe; the "Saved" sort uses it. */
+/** `at` is when `user` saved the recipe. */
 export type Bookmark = { user: User; at: string };
 /** `cover_key` is the R2 key, served at `/api/<cover_key>`. `source_ref` is set on imported recipes ("asana:<gid>"). */
 export type Recipe = RecipeInput & {
   id: string;
   ratings: Rating[];
   bookmarks: Bookmark[];
+  created_at: string;
   updated_at: string;
   cover_key?: string;
   cover_focus: CoverFocus | null;

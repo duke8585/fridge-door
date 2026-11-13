@@ -86,6 +86,7 @@ function rowToRecipe(r: RecipeRow, ratings: Rating[], bookmarks: Bookmark[]): Re
     source_ref: nn(r.source_ref),
     ratings,
     bookmarks,
+    created_at: r.created_at,
     updated_at: r.updated_at,
   };
 }

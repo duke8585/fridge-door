@@ -9,6 +9,7 @@ import { TagChip } from "../components/TagChip";
 import { compareRecipes, DEFAULT_SORT, nextSort, SORTS, type Sort } from "../lib/recipeSort";
 import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
 import { Link, navigate } from "../lib/router";
+import { ago } from "../lib/ago";
 import { useSignal } from "../lib/signal";
 import { currentUser } from "../lib/user";
 import { catalogue } from "../store/catalogue";
@@ -253,6 +254,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
                   {cached.has(r.id) && <span className="muted small" title="Available offline">⤓ offline</span>}
                 </span>
                 <span className="tags small">{r.tags.map(cardTag).join(" · ")}</span>
+                <span className="modified small">modified {ago(r.updated_at)}</span>
               </span>
             </Link>
             <BookmarkButton on={r.bookmarks.some((b) => b.user === me)} onToggle={() => void setBookmark(r.id, me, !r.bookmarks.some((b) => b.user === me))} />

@@ -12,6 +12,7 @@ import { StarsInput } from "../components/Stars";
 import { TagInput, type TagValue } from "../components/TagInput";
 import { Link } from "../lib/router";
 import { MAX_FACTOR, parseFactor, readScale, writeScale } from "../lib/scaleParams";
+import { ago, formatDate } from "../lib/ago";
 import { useSignal } from "../lib/signal";
 import { currentUser } from "../lib/user";
 import { loginHref } from "../lib/api";
@@ -296,6 +297,9 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
           <Comments recipeId={recipe.id} comments={comments} />
         </>
       )}
+      <p className="muted small recipe-dates">
+        {recipe.created_at && <>added {formatDate(recipe.created_at)} · </>}modified {ago(recipe.updated_at)}
+      </p>
     </main>
   );
 }

@@ -15,6 +15,7 @@ import {
   StarsSchema,
   TagSchema,
   type Comment,
+  type Bookmark,
   type Rating,
   type User,
 } from "../shared/schema";
@@ -57,6 +58,8 @@ const McpReviewNotesSchema = ReviewNotesSchema.optional().describe('Review flags
 
 const ratingsByUser = (ratings: readonly Rating[]): Partial<Record<User, number>> => Object.fromEntries(ratings.map((r) => [r.user, r.stars]));
 
+const bookmarkedBy = (bookmarks: readonly Bookmark[]): User[] => bookmarks.map((b) => b.user);
+
 function serverInstructions(user: User): string {
   return [
     `Fridge Door is the household recipe box of max and partner. You act as ${user}; every change is attributed to ${user}.`,
@@ -65,6 +68,7 @@ function serverInstructions(user: User): string {
     "create_recipe also stops on a likely duplicate and shows the candidates. Retry with confirm_duplicate: true only when it is really a different recipe.",
     "update_recipe replaces the whole recipe: start from get_recipe and pass its updated_at as expected_updated_at.",
     "Every ingredient item is mapped to a canonical base and an aisle on save. Write items as the style guide says; lookup_ingredients shows what an item resolves to, set_ingredient corrects the catalogue when the user asks.",
+    "set_bookmark saves or unsaves a recipe for you; search_recipes with bookmarked: true lists only yours, and get_recipe and search_recipes show bookmarked_by.",
     "There is no delete.",
   ].join("\n");
 }
@@ -184,16 +188,18 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
         tags: z.array(TagSchema).max(10).optional().describe("Full group:value tags; all must match"),
         max_total_min: z.number().int().positive().optional(),
         include_stubs: z.boolean().default(false).describe(`Include recipes tagged ${STUB_TAG}`),
+        bookmarked: z.boolean().optional().describe("true: only recipes you bookmarked"),
         limit: z.number().int().min(1).max(100).default(20),
       }),
       annotations: READ,
     },
-    async ({ query, tags = [], max_total_min, include_stubs, limit }) => {
+    async ({ query, tags = [], max_total_min, include_stubs, bookmarked, limit }) => {
       const words = queryTerms(query ?? "", buildCatalogue(await repo.loadCatalogue(db)));
       const matches = (await repo.recipeIndex(db))
         .filter((r) => {
           if (!include_stubs && r.tags.includes(STUB_TAG)) return false;
           if (!tags.every((t) => r.tags.includes(t))) return false;
+          if (bookmarked && !r.bookmarks.some((b) => b.user === user)) return false;
           return max_total_min === undefined || (r.total_min !== undefined && r.total_min <= max_total_min);
         })
         .map((r) => ({ r, rank: searchRank(r, words) }))
@@ -206,6 +212,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
         tags: r.tags,
         total_min: r.total_min ?? null,
         ratings: ratingsByUser(r.ratings),
+        bookmarked_by: bookmarkedBy(r.bookmarks),
         has_cover: r.has_cover,
         source_url: r.source_url ?? null,
       }));
@@ -216,7 +223,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
   server.registerTool(
     "get_recipe",
     {
-      description: "One recipe: structured fields (unscaled, with updated_at for update_recipe), markdown (scaled), ratings and comments.",
+      description: "One recipe: structured fields (unscaled, with updated_at for update_recipe), markdown (scaled), ratings, bookmarked_by and comments.",
       inputSchema: z.object({ id: IdSchema, scale: ScaleSchema }),
       annotations: READ,
     },
@@ -226,6 +233,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       const comments = (await repo.listComments(db, id)).map(({ user, body_md, created_at }) => ({ user, body_md, created_at }));
       return ok({
         recipe,
+        bookmarked_by: bookmarkedBy(recipe.bookmarks),
         ...(scale !== 1 && { scale, scaled_sections: scaleSections(recipe.sections, scale) }),
         markdown: recipeToMarkdown(recipe, scale),
         comments,
@@ -353,6 +361,20 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       if (!(await repo.recipeExists(db, id))) return notFound(id);
       await repo.setRating(db, id, user, stars, now());
       return ok({ id, ratings: ratingsByUser((await repo.getRecipe(db, id))!.ratings) });
+    },
+  );
+
+  server.registerTool(
+    "set_bookmark",
+    {
+      description: "Bookmark a recipe for yourself (on: true) or remove your bookmark (on: false). Saying the same thing twice changes nothing.",
+      inputSchema: z.object({ id: IdSchema, on: z.boolean() }),
+      annotations: { ...WRITE, idempotentHint: true },
+    },
+    async ({ id, on }) => {
+      if (!(await repo.recipeExists(db, id))) return notFound(id);
+      await repo.setBookmark(db, id, user, on, now());
+      return ok({ id, bookmarked_by: bookmarkedBy((await repo.getRecipe(db, id))!.bookmarks) });
     },
   );
 

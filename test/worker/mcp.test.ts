@@ -249,6 +249,7 @@ describe("MCP tools", () => {
       "lookup_ingredients",
       "rate",
       "search_recipes",
+      "set_bookmark",
       "set_cover_from_url",
       "set_ingredient",
       "set_tags",
@@ -331,7 +332,7 @@ describe("MCP tools", () => {
     const search = await tool(token, "search_recipes", { query: "lentils", max_total_min: 60 });
     expect(search.data).toEqual({
       total: 1,
-      results: [{ id: "red-lentil-dal", title: "Red lentil dal", tags: ["course:main", "cuisine:indian", "method:one-pot"], total_min: 45, ratings: { max: 5 }, has_cover: false, source_url: "https://www.example.com/dal/" }],
+      results: [{ id: "red-lentil-dal", title: "Red lentil dal", tags: ["course:main", "cuisine:indian", "method:one-pot"], total_min: 45, ratings: { max: 5 }, bookmarked_by: [], has_cover: false, source_url: "https://www.example.com/dal/" }],
     });
     expect((await tool(token, "search_recipes", {})).data.total).toBe(1);
     expect((await tool(token, "search_recipes", { include_stubs: true, tags: ["cuisine:korean"] })).data.results[0].id).toBe("kimchi-pancakes");
@@ -375,6 +376,28 @@ describe("MCP tools", () => {
     expect(await repo.upsertRecipe(env.DB as D1Database, created.data.id, dal({ title: "Ours" }), { ...change, author: "max" }, created.data.updated_at)).toBe(false);
     expect(sqlite.prepare("SELECT title FROM recipes").get()).toEqual({ title: "Theirs" });
     expect(sqlite.prepare("SELECT author FROM recipe_revisions ORDER BY id").all()).toEqual([{ author: "max" }, { author: "partner" }]);
+  });
+
+  it("set_bookmark is explicit and per person; search_recipes bookmarked means mine", async () => {
+    const max = await connect("max");
+    const partner = await connect("partner");
+    await tool(max, "create_recipe", { recipe: dal() });
+    await tool(max, "create_recipe", { recipe: dal({ title: "Kimchi pancakes", source_url: undefined, tags: ["course:snack"] }) });
+    const ids = (r: ToolOutput): string[] => r.data.results.map((x: { id: string }) => x.id);
+
+    expect((await tool(max, "set_bookmark", { id: "red-lentil-dal", on: true })).data).toEqual({ id: "red-lentil-dal", bookmarked_by: ["max"] });
+    expect((await tool(max, "set_bookmark", { id: "red-lentil-dal", on: true })).data.bookmarked_by).toEqual(["max"]);
+    await tool(partner, "set_bookmark", { id: "kimchi-pancakes", on: true });
+
+    expect(ids(await tool(max, "search_recipes", { bookmarked: true }))).toEqual(["red-lentil-dal"]);
+    expect(ids(await tool(partner, "search_recipes", { bookmarked: true }))).toEqual(["kimchi-pancakes"]);
+    expect((await tool(max, "search_recipes", { bookmarked: false })).data.total).toBe(2);
+    expect((await tool(max, "search_recipes", { bookmarked: true, query: "kimchi" })).data.total).toBe(0);
+    expect((await tool(max, "get_recipe", { id: "kimchi-pancakes" })).data.bookmarked_by).toEqual(["partner"]);
+
+    expect((await tool(max, "set_bookmark", { id: "red-lentil-dal", on: false })).data.bookmarked_by).toEqual([]);
+    expect((await tool(max, "search_recipes", { bookmarked: true })).data.total).toBe(0);
+    expect((await tool(max, "set_bookmark", { id: "nope", on: true })).isError).toBe(true);
   });
 
   it("set_tags, rate, add_comment and add_to_shopping_list act as the token's user", async () => {

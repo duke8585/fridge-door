@@ -67,9 +67,28 @@ async function classifyBatch(client: Anthropic, items: readonly string[], knownB
   const parsed = ClassifiedSchema.safeParse(call?.input);
   const asked = new Set(items);
   const out = new Map<string, Place>();
-  for (const c of parsed.success ? parsed.data.ingredients : []) {
+  const answers = parsed.success ? parsed.data.ingredients : [];
+  const rejected: string[] = [];
+  for (const c of answers) {
     const base = storedName(c.base);
     if (asked.has(c.item) && base && base.length <= 60) out.set(c.item, { base, aisle: c.aisle });
+    else rejected.push(`${c.item} -> ${c.base}`);
+  }
+  if (out.size < items.length) {
+    console.log(
+      JSON.stringify({
+        event: "ingredient_classify_partial",
+        asked: items.length,
+        answered: answers.length,
+        accepted: out.size,
+        stop_reason: res.stop_reason,
+        tool_called: !!call,
+        parse_error: parsed.success ? null : parsed.error.message.slice(0, 300),
+        output_tokens: res.usage.output_tokens,
+        rejected: rejected.slice(0, 8),
+        unanswered: items.filter((i) => !out.has(i)).slice(0, 8),
+      }),
+    );
   }
   return out;
 }

@@ -2,6 +2,8 @@ node_modules/
 dist/
 .wrangler/
 .dev.vars
+# Deploy-side tokens (IMPORT_TOKEN_PROD, IMPORT_TOKEN_STG), written by scripts/import-token.sh.
+.env
 .DS_Store
 __pycache__/
 

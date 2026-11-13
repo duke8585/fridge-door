@@ -146,8 +146,8 @@ npx wrangler secret put ANTHROPIC_API_KEY -c wrangler.jsonc
 `wrangler secret put` prompts for the value, or reads it from stdin (`< file`).
 
 Cloudflare never shows a secret again, so `npm run import-token -- prod|stg` keeps the IMPORT_TOKEN
-it generates in `~/.config/fridge-door/import-token-<env>` (mode 600, outside the repo so it
-cannot be committed). Rerun it to rotate; the old token stops working.
+it generates as `IMPORT_TOKEN_PROD` / `IMPORT_TOKEN_STG` in `.env` (gitignored, mode 600). Rerun it
+to rotate; the old token stops working.
 `scripts/set-prod-secrets.sh` does the same for production from files, without printing anything:
 
 ```sh
@@ -287,7 +287,7 @@ kept a rule-based base. Review what the model added with the MCP tool `list_ingr
 deployment, using `IMPORT_TOKEN`:
 
 ```sh
-RECIPES_IMPORT_TOKEN="$(cat ~/.config/fridge-door/import-token-prod)" npm run load-import -- https://<your domain> <records dir> <images dir> [id ...]
+RECIPES_IMPORT_TOKEN="$(grep ^IMPORT_TOKEN_PROD= .env | cut -d= -f2-)" npm run load-import -- https://<your domain> <records dir> <images dir> [id ...]
 ```
 
 It is idempotent: an unchanged record writes nothing, and a cover uploads only when its content

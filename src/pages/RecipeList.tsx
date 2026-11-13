@@ -3,12 +3,12 @@ import { coverUrl, focusPosition } from "../../shared/cover";
 import { searchRecipes } from "../../shared/search";
 import { parseTag, type TagGroup } from "../../shared/tags";
 import { formatMinutes, matchesTimeFilter, TIME_FILTERS } from "../../shared/time";
-import { BookmarkButton, BookmarkIcon } from "../components/BookmarkButton";
+import { BookmarkButton } from "../components/BookmarkButton";
 import { AvgStars } from "../components/Stars";
 import { TagChip } from "../components/TagChip";
 import { BOOKMARKS_SORT, compareRecipes, loadSort, nextSort, SAVED_SORT, saveSort, SORTS, type Sort } from "../lib/recipeSort";
 import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
-import { Link, navigate } from "../lib/router";
+import { Link } from "../lib/router";
 import { useSignal } from "../lib/signal";
 import { currentUser } from "../lib/user";
 import { catalogue } from "../store/catalogue";
@@ -25,8 +25,7 @@ const cardTag = (t: string): string => {
  * Search (title, ingredients, notes, tag values), tag and time filters and the sort run client-side
  * over the cached list, so they work offline. With a search, relevance comes first (title matches,
  * then tags and ingredients, then notes) and the chosen sort orders the recipes within each of those.
- * `bookmarks` (the /bookmarks page) narrows the list to my bookmarks before all of that; it is the same
- * component, so search and filters survive switching with the Bookmarked chip.
+ * `bookmarks` (the /bookmarks page, opened from the header) narrows the list to my bookmarks before all of that.
  */
 export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   const all = useSignal(summaries);
@@ -109,11 +108,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
           })}
         </div>
       </div>
-      <div className="chips tag-groups" role="toolbar" aria-label="Filter by bookmark, duration or tag group">
-        <button type="button" className={bookmarks ? "chip on" : "chip"} aria-pressed={bookmarks} onClick={() => navigate(bookmarks ? "/" : "/bookmarks", { replace: true })}>
-          <BookmarkIcon filled={bookmarks} />
-          Bookmarked
-        </button>
+      <div className="chips tag-groups" role="toolbar" aria-label="Filter by duration or tag group">
         <button
           type="button"
           className={`chip group-tab${openGroup === "duration" ? " open" : ""}${time ? " on" : ""}`}

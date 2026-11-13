@@ -180,7 +180,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .bookmark-button:hover { color: var(--fg); }
 .bookmark-button[aria-pressed="true"] { color: var(--accent); }
 .recipe-list .bookmark-button { position: absolute; top: 0.35rem; right: 0.35rem; background: color-mix(in srgb, var(--card) 88%, transparent); }
-.chip svg { width: 1rem; height: 1rem; flex: none; }
+.app-header .bookmarks-link.on { color: var(--accent); }
 .title-row { display: flex; align-items: center; gap: 0.5rem; }
 .title-row h1 { flex: 1; min-width: 0; }
 .saved-by { margin: -0.25rem 0 0; }

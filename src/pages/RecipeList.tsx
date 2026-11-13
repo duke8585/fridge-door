@@ -3,10 +3,10 @@ import { coverUrl, focusPosition } from "../../shared/cover";
 import { searchRecipes } from "../../shared/search";
 import { parseTag, type TagGroup } from "../../shared/tags";
 import { formatMinutes, matchesTimeFilter, TIME_FILTERS } from "../../shared/time";
-import { BookmarkButton } from "../components/BookmarkButton";
+import { BookmarkButton, BookmarkIcon } from "../components/BookmarkButton";
 import { AvgStars } from "../components/Stars";
 import { TagChip } from "../components/TagChip";
-import { BOOKMARKS_SORT, compareRecipes, loadSort, nextSort, SAVED_SORT, saveSort, SORTS, type Sort } from "../lib/recipeSort";
+import { compareRecipes, loadSort, nextSort, saveSort, SORTS, type Sort } from "../lib/recipeSort";
 import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
 import { Link, navigate } from "../lib/router";
 import { useSignal } from "../lib/signal";
@@ -35,10 +35,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // "duration" is a tab like the tag groups, holding the total-time filter
   const [openGroup, setOpenGroup] = useState<TagGroup | "duration" | null>(null);
-  const [listSort, setListSort] = useState<Sort>(loadSort);
-  // /bookmarks starts on "Saved" and keeps its own sort, so the remembered list sort is left alone
-  const [savedSort, setSavedSort] = useState<Sort>(BOOKMARKS_SORT);
-  const sort = bookmarks ? savedSort : listSort;
+  const [sort, setSort] = useState<Sort>(loadSort);
   const list = useMemo(() => (bookmarks ? all?.filter((r) => r.bookmarks.some((b) => b.user === me)) : all), [all, bookmarks, me]);
   const [time, setTime] = useState<string | null>(null);
   const [cached, setCached] = useState<Set<string>>(new Set());
@@ -59,8 +56,8 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
     return new Map(TIME_FILTERS.map((f) => [f.id, tagged.filter((r) => matchesTimeFilter(r.time, f.id)).length]));
   }, [searched, selected]);
   const shown = useMemo(
-    () => searchRecipes(base.filter((r) => matchesTagFilter(r.tags, selected)).sort(compareRecipes(sort, me)), q, cat),
-    [base, q, selected, sort, cat, me],
+    () => searchRecipes(base.filter((r) => matchesTagFilter(r.tags, selected)).sort(compareRecipes(sort)), q, cat),
+    [base, q, selected, sort, cat],
   );
   const toggle = (t: string): void =>
     setSelected((s) => {
@@ -83,7 +80,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
       </div>
       <div className="list-controls">
         <div className="chips" role="group" aria-label="Sort">
-          {(bookmarks ? [SAVED_SORT, ...SORTS] : SORTS).map((o) => {
+          {SORTS.map((o) => {
             const active = sort.id === o.id;
             return (
               <button
@@ -94,11 +91,8 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
                 title={active ? "Click again to reverse" : undefined}
                 onClick={() => {
                   const next = nextSort(sort, o.id);
-                  if (bookmarks) setSavedSort(next);
-                  else {
-                    setListSort(next);
-                    saveSort(next);
-                  }
+                  setSort(next);
+                  saveSort(next);
                 }}
               >
                 {o.label}
@@ -114,11 +108,11 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
           className={`chip group-tab${bookmarks ? " on" : ""}`}
           data-group="bookmarked"
           aria-pressed={bookmarks}
+          aria-label="Bookmarked only"
+          title="Bookmarked only"
           onClick={() => navigate(bookmarks ? "/" : "/bookmarks", { replace: true })}
         >
-          <span className="tag-group" data-group="bookmarked">
-            bookmarked
-          </span>
+          <BookmarkIcon filled={bookmarks} />
         </button>
         <button
           type="button"

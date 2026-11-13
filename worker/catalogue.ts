@@ -23,8 +23,8 @@ import * as repo from "./repo";
 
 export const CLASSIFY_MODEL = "claude-haiku-5-5";
 const TOOL_NAME = "record_ingredients";
-/** Items per model call: one call covers any recipe, the backfill needs several. */
-const BATCH = 60;
+/** Items per model call: one call covers any recipe, the backfill needs several. Haiku thinks by default and its thinking counts against max_tokens, so batches stay small. */
+const BATCH = 30;
 
 export type Place = { base: string; aisle: Aisle };
 
@@ -57,7 +57,8 @@ export function classifyMessage(items: readonly string[], knownBases: readonly s
 async function classifyBatch(client: Anthropic, items: readonly string[], knownBases: readonly string[]): Promise<Map<string, Place>> {
   const res = await client.beta.messages.create({
     model: CLASSIFY_MODEL,
-    max_tokens: 4000,
+    max_tokens: 16000,
+    output_config: { effort: "low" },
     system: CLASSIFY_SYSTEM,
     tools: [CLASSIFY_TOOL],
     tool_choice: { type: "auto", disable_parallel_tool_use: true },

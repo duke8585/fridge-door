@@ -84,7 +84,7 @@ export function singularKey(item: string): string {
 const DESCRIPTORS = new Set(
   ("ripe large small medium chopped diced sliced grated peeled halved quartered shredded cubed julienned finely roughly thinly coarsely drained rinsed trimmed " +
     "cold hot warm lukewarm boiling chilled fresh freshly organic plain toasted unsalted salted natural very overripe extra virgin granulated powdered liquid ground " +
-    "red green yellow white black").split(" "),
+    "red green yellow white black whole unsweetened mild light baby mini curly slivered crushed shelled cooked filtered ice-cold").split(" "),
 );
 
 /** Diet qualifiers that do not change the ingredient: "low fat cottage cheese", "sugar free jelly". */

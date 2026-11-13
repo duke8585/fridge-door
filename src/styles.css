@@ -141,6 +141,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 [data-group="bookmarked"] { --g: var(--accent); }
 .group-tab[data-group="bookmarked"] { color: var(--g); }
 .group-tab[data-group="bookmarked"] svg { width: 1rem; height: 1rem; display: block; }
+[data-group="sort"] { --g: var(--g-status); }
 [data-group="duration"] { --g: var(--g-duration); }
 [data-group="course"] { --g: var(--g-course); }
 [data-group="cuisine"] { --g: var(--g-cuisine); }
@@ -156,7 +157,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 .group-tab.open { outline: 2px solid var(--g, var(--accent)); outline-offset: -1px; }
 .tag-chip.empty { opacity: 0.45; }
 .tag-option { display: inline-flex; align-items: baseline; }
-.list-controls { display: flex; justify-content: flex-end; margin-bottom: 0.4rem; }
 .link-button { border: 0; background: none; color: var(--accent); text-decoration: underline; padding: 0.2rem 0.4rem; min-height: 2rem; }
 /* Gallery: two cards per row on a phone, more on wide screens. */
 .recipe-list {

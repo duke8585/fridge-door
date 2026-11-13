@@ -33,8 +33,8 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   const cat = useSignal(catalogue);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  // "duration" is a tab like the tag groups, holding the total-time filter
-  const [openGroup, setOpenGroup] = useState<TagGroup | "duration" | null>(null);
+  // "sort" and "duration" are tabs like the tag groups, holding the sort order and the total-time filter
+  const [openGroup, setOpenGroup] = useState<TagGroup | "sort" | "duration" | null>(null);
   const [sort, setSort] = useState<Sort>(loadSort);
   const list = useMemo(() => (bookmarks ? all?.filter((r) => r.bookmarks.some((b) => b.user === me)) : all), [all, bookmarks, me]);
   const [time, setTime] = useState<string | null>(null);
@@ -66,6 +66,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
       return next;
     });
   const open = groups.find((g) => g.group === openGroup);
+  const arrow = <span aria-label={sort.dir === "asc" ? "ascending" : "descending"}>{sort.dir === "asc" ? " ↑" : " ↓"}</span>;
 
   return (
     <main className="page">
@@ -78,31 +79,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
           + New
         </Link>
       </div>
-      <div className="list-controls">
-        <div className="chips" role="group" aria-label="Sort">
-          {SORTS.map((o) => {
-            const active = sort.id === o.id;
-            return (
-              <button
-                key={o.id}
-                type="button"
-                className={active ? "chip on" : "chip"}
-                aria-pressed={active}
-                title={active ? "Click again to reverse" : undefined}
-                onClick={() => {
-                  const next = nextSort(sort, o.id);
-                  setSort(next);
-                  saveSort(next);
-                }}
-              >
-                {o.label}
-                {active && <span aria-label={sort.dir === "asc" ? "ascending" : "descending"}>{sort.dir === "asc" ? " ↑" : " ↓"}</span>}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <div className="chips tag-groups" role="toolbar" aria-label="Filter by bookmark, duration or tag group">
+      <div className="chips tag-groups" role="toolbar" aria-label="Sort, or filter by bookmark, duration or tag group">
         <button
           type="button"
           className={`chip group-tab${bookmarks ? " on" : ""}`}
@@ -113,6 +90,22 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
           onClick={() => navigate(bookmarks ? "/" : "/bookmarks", { replace: true })}
         >
           <BookmarkIcon filled={bookmarks} />
+        </button>
+        <button
+          type="button"
+          className={`chip group-tab${openGroup === "sort" ? " open" : ""}`}
+          data-group="sort"
+          aria-expanded={openGroup === "sort"}
+          aria-controls="tag-values"
+          onClick={() => setOpenGroup(openGroup === "sort" ? null : "sort")}
+        >
+          <span className="tag-group" data-group="sort">
+            sort
+          </span>
+          <span className="small">
+            {SORTS.find((o) => o.id === sort.id)!.label}
+            {arrow}
+          </span>
         </button>
         <button
           type="button"
@@ -147,6 +140,31 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
           );
         })}
       </div>
+      {openGroup === "sort" && (
+        <div id="tag-values" className="chips" role="group" aria-label="Sort">
+          {SORTS.map((o) => {
+            const active = sort.id === o.id;
+            return (
+              <button
+                key={o.id}
+                type="button"
+                className={`chip tag-chip${active ? " on" : ""}`}
+                data-group="sort"
+                aria-pressed={active}
+                title={active ? "Click again to reverse" : undefined}
+                onClick={() => {
+                  const next = nextSort(sort, o.id);
+                  setSort(next);
+                  saveSort(next);
+                }}
+              >
+                <span className="tag-value">{o.label}</span>
+                {active && arrow}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {openGroup === "duration" && (
         <div id="tag-values" className="chips" role="group" aria-label="Total time">
           {TIME_FILTERS.map((f) => {

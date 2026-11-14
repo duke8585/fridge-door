@@ -4,7 +4,7 @@
  *
  * - GET /login: provider buttons. /auth/<provider>/start sets a signed single-use state cookie
  *   and redirects to the provider; /auth/<provider>/callback checks it, asks the provider who
- *   this is, looks the identity up in ALLOWED_GOOGLE / ALLOWED_GITHUB and sets `fd_session`.
+ *   this is, looks the identity up in LOGINS and sets `fd_session`.
  * - The acting user comes only from the session (or, on the import routes, from IMPORT_TOKEN).
  * - Without a session: /api/* -> 401 JSON {error:"auth_required"}, page navigations ->
  *   302 /login?next=..., other requests -> 401. The manifest and icons stay public because
@@ -37,8 +37,8 @@ export type AuthEnv = {
   GOOGLE_CLIENT_SECRET?: string;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
-  ALLOWED_GOOGLE?: string;
-  ALLOWED_GITHUB?: string;
+  /** wrangler.jsonc vars, a JSON object: see LoginsSchema. */
+  LOGINS?: unknown;
   /** "true" only in .dev.vars. Also needs a loopback host, so it cannot work on a deployed Worker. */
   DEV_LOGIN?: string;
 };
@@ -65,18 +65,20 @@ export function normalizeEmail(email: string): string {
 const normalizeGoogleKey = (k: string): string | null => (k.includes("@") ? normalizeEmail(k) : null);
 const normalizeGithubKey = (k: string): string | null => (/^\d+$/.test(k) ? k : null);
 
-/** JSON `{key: "max" | "partner"}`. Anything malformed gives an empty list, which lets nobody in. */
-export function parseAllowlist(raw: string | undefined, normalizeKey: (k: string) => string | null): ReadonlyMap<string, User> {
-  let json: unknown;
-  try {
-    json = JSON.parse(raw ?? "");
-  } catch {
-    json = undefined;
-  }
-  const parsed = z.record(z.string(), UserSchema).safeParse(json);
-  const entries = parsed.success ? Object.entries(parsed.data).map(([k, u]) => [normalizeKey(k), u] as const) : [];
-  if (!parsed.success || entries.some(([k]) => k === null)) {
-    console.error("invalid login allowlist config; nobody can log in with it");
+const NORMALIZE_KEY: Record<ProviderId, (k: string) => string | null> = { google: normalizeGoogleKey, github: normalizeGithubKey };
+
+/** `{"max": {"google": "<email>", "github": "<numeric id>"}, "nadine": {...}}`. Either login may be left out. */
+const LoginsSchema = z.partialRecord(UserSchema, z.strictObject({ google: z.string().optional(), github: z.string().optional() }));
+
+/** Who may log in as whom with one provider. Anything malformed gives an empty list, which lets nobody in. */
+export function allowlist(logins: unknown, provider: ProviderId): ReadonlyMap<string, User> {
+  const parsed = LoginsSchema.safeParse(logins);
+  const entries = parsed.success
+    ? Object.entries(parsed.data).flatMap(([user, ids]) => (ids?.[provider] === undefined ? [] : [[NORMALIZE_KEY[provider](ids[provider]), user as User] as const]))
+    : [];
+  const keys = entries.map(([k]) => k);
+  if (!parsed.success || keys.includes(null) || new Set(keys).size < keys.length) {
+    console.error(`invalid LOGINS config; nobody can log in with ${provider}`);
     return new Map();
   }
   return new Map(entries as [string, User][]);
@@ -131,7 +133,7 @@ function googleClaims(idToken: string, clientId: string, nonce: string): z.infer
 const google: Provider = {
   label: "Google",
   credentials: (env) => creds(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET),
-  allowlist: (env) => parseAllowlist(env.ALLOWED_GOOGLE, normalizeGoogleKey),
+  allowlist: (env) => allowlist(env.LOGINS, "google"),
   async start(clientId, redirectUri, next) {
     const state = { provider: "google", nonce: randomToken(), next, verifier: randomToken() } as const;
     const challenge = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(state.verifier)));
@@ -170,7 +172,7 @@ const google: Provider = {
 const github: Provider = {
   label: "GitHub",
   credentials: (env) => creds(env.GITHUB_CLIENT_ID, env.GITHUB_CLIENT_SECRET),
-  allowlist: (env) => parseAllowlist(env.ALLOWED_GITHUB, normalizeGithubKey),
+  allowlist: (env) => allowlist(env.LOGINS, "github"),
   async start(clientId, redirectUri, next) {
     const state = { provider: "github", nonce: randomToken(), next } as const;
     const url = new URL("https://github.com/login/oauth/authorize");
@@ -288,7 +290,7 @@ export async function authRoutes(req: Request, env: AuthEnv, nowMs: number = Dat
     const form = await req.formData().catch(() => undefined);
     const user = UserSchema.safeParse(form?.get("user"));
     const next = form?.get("next");
-    if (!user.success) return errorPage(400, "Pick max or partner.", "/");
+    if (!user.success) return errorPage(400, "Pick max or nadine.", "/");
     return redirect(safeNext(typeof next === "string" ? next : "/"), [cookie(SESSION_COOKIE, await signSession(secret, user.data, nowMs), SESSION_MAX_AGE_S)], 303);
   }
 

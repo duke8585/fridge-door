@@ -120,8 +120,8 @@ optimistically and queued in an outbox of idempotent requests. The shopping list
 with last-write-wins on the edit time and tombstones for deletes, and polls with a server
 revision cursor.
 
-The app has exactly two users, with the fixed ids `max` and `partner` (`USERS` in
-`shared/constants.ts`). The allowlists map Google emails and GitHub user ids to these ids.
+The app has exactly two users, with the fixed ids `max` and `nadine` (`USERS` in
+`shared/constants.ts`). `LOGINS` in `wrangler.jsonc` maps each id to its Google email and GitHub user id.
 
 ## Local development
 
@@ -137,7 +137,7 @@ npm run dev
 and serves the app on http://localhost:8788.
 
 OAuth providers cannot redirect back to localhost, so `.dev.vars` sets `DEV_LOGIN=true`. The login
-page then offers "log in as max" and "log in as partner". Dev login also requires a localhost or
+page then offers "log in as max" and "log in as nadine". Dev login also requires a localhost or
 127.0.0.1 host, and `wrangler deploy` never uploads `.dev.vars`, so it cannot work on a deployed
 Worker. Open a normal and a private window to act as both people at once.
 

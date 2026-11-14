@@ -78,14 +78,14 @@ describe("groupShopping", () => {
 
 describe("applyOp (optimistic recipe ops)", () => {
   const detail: RecipeDetail = {
-    recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: ["a"], ratings: [{ user: "partner", stars: 3 }], bookmarks: [], created_at: "", updated_at: "", cover_focus: null },
+    recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: ["a"], ratings: [{ user: "nadine", stars: 3 }], bookmarks: [], created_at: "", updated_at: "", cover_focus: null },
     comments: [],
   };
   it("is idempotent for rating replays", () => {
     const op = { kind: "rating", recipe_id: "r", user: "max", stars: 5 } as const;
     expect(applyOp(applyOp(detail, op), op).recipe.ratings).toEqual([
       { user: "max", stars: 5 },
-      { user: "partner", stars: 3 },
+      { user: "nadine", stars: 3 },
     ]);
   });
   it("sets and resets the cover focus", () => {
@@ -165,7 +165,7 @@ describe("bookmark ops", () => {
   const on = { kind: "bookmark", recipe_id: "r", user: "max", on: true, at: T } as const;
   const off = { ...on, on: false } as const;
   const detail: RecipeDetail = {
-    recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: [], ratings: [], bookmarks: [{ user: "partner", at: "2026-11-01T00:00:00.000Z" }], created_at: "", updated_at: updated, cover_focus: null },
+    recipe: { id: "r", title: "R", sections: [], steps_md: "", notes_md: "", tags: [], ratings: [], bookmarks: [{ user: "nadine", at: "2026-11-01T00:00:00.000Z" }], created_at: "", updated_at: updated, cover_focus: null },
     comments: [],
   };
   const summary: RecipeSummary = {
@@ -175,7 +175,7 @@ describe("bookmark ops", () => {
 
   it("adds and removes only the user's entry, without moving updated_at", () => {
     const saved = applyOp(detail, on);
-    expect(saved.recipe.bookmarks).toEqual([{ user: "max", at: T }, { user: "partner", at: "2026-11-01T00:00:00.000Z" }]);
+    expect(saved.recipe.bookmarks).toEqual([{ user: "max", at: T }, { user: "nadine", at: "2026-11-01T00:00:00.000Z" }]);
     expect(saved.recipe.updated_at).toBe(updated);
     const removed = applyOp(saved, off);
     expect(removed.recipe.bookmarks).toEqual(detail.recipe.bookmarks);

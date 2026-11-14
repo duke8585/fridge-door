@@ -26,12 +26,14 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": true
   },
-  // Login allowlists (public, not secrets). The app has exactly two users, "max" and "partner"
-  // (USERS in shared/constants.ts). Keys: Google email (normalized, see worker/auth.ts) and GitHub
-  // numeric user id. Empty or invalid JSON lets nobody in with that provider.
+  // Who may log in as whom (public, not secrets). The app has exactly two users, "max" and "nadine"
+  // (USERS in shared/constants.ts). Per person: Google email (normalized, see worker/auth.ts) and
+  // GitHub numeric user id, either optional. Invalid config lets nobody in with that provider.
   "vars": {
-    "ALLOWED_GOOGLE": "{\"alice@example.com\":\"max\",\"bob@example.com\":\"partner\"}",
-    "ALLOWED_GITHUB": "{\"1234567\":\"max\"}",
+    "LOGINS": {
+      "max": { "google": "alice@example.com", "github": "1234567" },
+      "nadine": { "google": "bob@example.com" }
+    },
     // Public URL of the MCP endpoint, the URL pasted into claude.ai. OAuth tokens are bound to it.
     "MCP_RESOURCE": "https://<recipes.example.com>/mcp"
   },
@@ -61,8 +63,10 @@
       "preview_urls": false,
       "routes": [],
       "vars": {
-        "ALLOWED_GOOGLE": "{\"alice@example.com\":\"max\",\"bob@example.com\":\"partner\"}",
-        "ALLOWED_GITHUB": "{\"1234567\":\"max\"}",
+        "LOGINS": {
+          "max": { "google": "alice@example.com", "github": "1234567" },
+          "nadine": { "google": "bob@example.com" }
+        },
         "MCP_RESOURCE": "https://fridge-door-stg.<your-subdomain>.workers.dev/mcp"
       },
       "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "<stg kv namespace id>" }],

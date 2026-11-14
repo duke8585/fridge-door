@@ -48,12 +48,12 @@ describe("PUT /recipes/:id/bookmark", () => {
     at(1);
     expect((await bookmark("dal", true, "max")).body.bookmarks).toEqual([{ user: "max", at: "2026-11-08T10:01:00.000Z" }]);
     at(2);
-    await bookmark("dal", true, "partner");
+    await bookmark("dal", true, "nadine");
     expect(await listed("dal")).toEqual([
       { user: "max", at: "2026-11-08T10:01:00.000Z" },
-      { user: "partner", at: "2026-11-08T10:02:00.000Z" },
+      { user: "nadine", at: "2026-11-08T10:02:00.000Z" },
     ]);
-    expect((await bookmark("dal", false, "max")).body.bookmarks.map((b) => b.user)).toEqual(["partner"]);
+    expect((await bookmark("dal", false, "max")).body.bookmarks.map((b) => b.user)).toEqual(["nadine"]);
   });
 
   it("is idempotent and keeps the first created_at", async () => {

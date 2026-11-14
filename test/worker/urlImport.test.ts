@@ -273,7 +273,7 @@ describe("POST /api/import-url", () => {
 
     pages.set("https://cook.example/dal", () => html(ldPage(DAL_LD)));
     claude.push(toolReply({ recipe: goodRecipe(), review_notes: [] }));
-    expect((await importUrl({ url: "https://cook.example/dal" }, "partner")).status).toBe(200);
+    expect((await importUrl({ url: "https://cook.example/dal" }, "nadine")).status).toBe(200);
   });
 
   it("without a key, maps JSON-LD into a draft without AI and says so", async () => {
@@ -362,14 +362,14 @@ describe("POST /api/import-url/save", () => {
 
   it("creates through the ingest path: url-import revision, Import notes comment, cover from the candidate", async () => {
     pages.set("https://img.example/dal.png", () => new Response(png, { headers: { "content-type": "image/png" } }));
-    const res = await post("/api/import-url/save", { recipe: draft(), review_notes: ["time estimated"], confirm_duplicate: false, cover_url: "https://img.example/dal.png" }, "partner");
+    const res = await post("/api/import-url/save", { recipe: draft(), review_notes: ["time estimated"], confirm_duplicate: false, cover_url: "https://img.example/dal.png" }, "nadine");
     expect(res.status).toBe(201);
     const data = (await res.json()) as any;
     expect(data.recipe).toMatchObject({ id: "red-lentil-dal", tags: ["course:main", "cuisine:indian", "method:one-pot"] });
     expect(data.recipe.cover_key).toMatch(/^covers\/red-lentil-dal\/[0-9a-f]{16}\.png$/);
     expect(objects.size).toBe(1);
-    expect(data.comments).toEqual([expect.objectContaining({ user: "partner", body_md: "Import notes:\n- time estimated" })]);
-    expect(sqlite.prepare("SELECT source, author FROM recipe_revisions").all()).toEqual([{ source: "url-import", author: "partner" }]);
+    expect(data.comments).toEqual([expect.objectContaining({ user: "nadine", body_md: "Import notes:\n- time estimated" })]);
+    expect(sqlite.prepare("SELECT source, author FROM recipe_revisions").all()).toEqual([{ source: "url-import", author: "nadine" }]);
   });
 
   it("saves the recipe even when the cover fails, and reports it", async () => {

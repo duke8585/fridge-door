@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolve } from "node:path";
 import worker from "../../worker/index";
-import { authRoutes, normalizeEmail, parseAllowlist, type AuthEnv } from "../../worker/auth";
+import { authRoutes, allowlist, normalizeEmail, type AuthEnv } from "../../worker/auth";
 import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_S,
@@ -27,8 +27,7 @@ const authEnv: AuthEnv = {
   GOOGLE_CLIENT_SECRET: "g-secret",
   GITHUB_CLIENT_ID: "gh-client",
   GITHUB_CLIENT_SECRET: "gh-secret",
-  ALLOWED_GOOGLE: JSON.stringify({ "bob.smith@googlemail.com": "max", "alice.jones@gmail.com": "partner" }),
-  ALLOWED_GITHUB: JSON.stringify({ "4242": "partner" }),
+  LOGINS: { max: { google: "bob.smith@googlemail.com" }, nadine: { google: "alice.jones@gmail.com", github: "4242" } },
 };
 
 const get = (path: string, headers: Record<string, string> = {}, env: AuthEnv = authEnv, origin = ORIGIN) =>
@@ -48,37 +47,39 @@ describe("allowlist", () => {
     expect(normalizeEmail("First.Last@Example.org")).toBe("first.last@example.org");
   });
   it("matches the configured google list through normalization", () => {
-    const list = parseAllowlist(authEnv.ALLOWED_GOOGLE, (k) => normalizeEmail(k));
+    const list = allowlist(authEnv.LOGINS, "google");
     expect(list.get(normalizeEmail("bobsmith@gmail.com"))).toBe("max");
-    expect(list.get(normalizeEmail("Alice.Jones@googlemail.com"))).toBe("partner");
+    expect(list.get(normalizeEmail("Alice.Jones@googlemail.com"))).toBe("nadine");
     expect(list.get(normalizeEmail("someone@gmail.com"))).toBeUndefined();
   });
-  it("fails closed on empty, invalid JSON, unknown users or bad keys", () => {
+  it("leaves out a person without that provider", () => {
+    expect([...allowlist(authEnv.LOGINS, "github")]).toEqual([["4242", "nadine"]]);
+  });
+  it("fails closed on missing config, unknown users or fields, bad keys and shared logins", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const anyKey = (k: string) => k;
-    expect(parseAllowlist(undefined, anyKey).size).toBe(0);
-    expect(parseAllowlist("", anyKey).size).toBe(0);
-    expect(parseAllowlist("{}", anyKey).size).toBe(0);
-    expect(parseAllowlist("{not json", anyKey).size).toBe(0);
-    expect(parseAllowlist('["max"]', anyKey).size).toBe(0);
-    expect(parseAllowlist('{"a@b.c":"max","x@y.z":"admin"}', anyKey).size).toBe(0);
-    expect(parseAllowlist('{"123":"max","octocat":"partner"}', (k) => (/^\d+$/.test(k) ? k : null)).size).toBe(0);
+    expect(allowlist(undefined, "google").size).toBe(0);
+    expect(allowlist({}, "google").size).toBe(0);
+    expect(allowlist('{"max":{"google":"a@b.c"}}', "google").size).toBe(0);
+    expect(allowlist({ max: { google: "a@b.c" }, admin: { google: "x@y.z" } }, "google").size).toBe(0);
+    expect(allowlist({ max: { google: "a@b.c", gitlab: "1" } }, "google").size).toBe(0);
+    expect(allowlist({ max: { github: "123" }, nadine: { github: "octocat" } }, "github").size).toBe(0);
+    expect(allowlist({ max: { google: "a.b@gmail.com" }, nadine: { google: "ab@googlemail.com" } }, "google").size).toBe(0);
   });
 });
 
 describe("session cookie", () => {
   it("round-trips the user until it expires", async () => {
-    const v = await signSession(TEST_SECRET, "partner", NOW);
-    expect(v).toMatch(/^partner\.\d+\.[\w-]{43}$/);
-    expect(await verifySession(v, TEST_SECRET, NOW)).toBe("partner");
-    expect(await verifySession(v, TEST_SECRET, NOW + (SESSION_MAX_AGE_S - 1) * 1000)).toBe("partner");
+    const v = await signSession(TEST_SECRET, "nadine", NOW);
+    expect(v).toMatch(/^nadine\.\d+\.[\w-]{43}$/);
+    expect(await verifySession(v, TEST_SECRET, NOW)).toBe("nadine");
+    expect(await verifySession(v, TEST_SECRET, NOW + (SESSION_MAX_AGE_S - 1) * 1000)).toBe("nadine");
     expect(await verifySession(v, TEST_SECRET, NOW + SESSION_MAX_AGE_S * 1000)).toBeNull();
   });
   it("rejects tampering, another secret, a missing secret and junk", async () => {
-    const v = await signSession(TEST_SECRET, "partner", NOW);
+    const v = await signSession(TEST_SECRET, "nadine", NOW);
     const [, exp, mac] = v.split(".");
     expect(await verifySession(`max.${exp}.${mac}`, TEST_SECRET, NOW)).toBeNull();
-    expect(await verifySession(`partner.${Number(exp) + 1}.${mac}`, TEST_SECRET, NOW)).toBeNull();
+    expect(await verifySession(`nadine.${Number(exp) + 1}.${mac}`, TEST_SECRET, NOW)).toBeNull();
     expect(await verifySession(v, "other-secret", NOW)).toBeNull();
     expect(await verifySession(v, undefined, NOW)).toBeNull();
     expect(await verifySession(v, "", NOW)).toBeNull();
@@ -131,13 +132,13 @@ describe("login pages", () => {
   it("offers dev login only with DEV_LOGIN on a loopback host", async () => {
     const dev = { ...authEnv, DEV_LOGIN: "true" };
     const post = (origin: string, env: AuthEnv) =>
-      authRoutes(new Request(`${origin}/auth/dev`, { method: "POST", body: new URLSearchParams({ user: "partner", next: "/shopping" }) }), env, NOW) as Promise<Response>;
-    expect(await (await get("/login", {}, dev, "http://localhost:8788")).text()).toContain("Dev: log in as partner");
+      authRoutes(new Request(`${origin}/auth/dev`, { method: "POST", body: new URLSearchParams({ user: "nadine", next: "/shopping" }) }), env, NOW) as Promise<Response>;
+    expect(await (await get("/login", {}, dev, "http://localhost:8788")).text()).toContain("Dev: log in as nadine");
     expect(await (await get("/login", {}, dev)).text()).not.toContain("/auth/dev");
     const ok = await post("http://localhost:8788", dev);
     expect(ok.status).toBe(303);
     expect(ok.headers.get("location")).toBe("/shopping");
-    expect(await verifySession(cookieValue(ok, SESSION_COOKIE), TEST_SECRET, NOW)).toBe("partner");
+    expect(await verifySession(cookieValue(ok, SESSION_COOKIE), TEST_SECRET, NOW)).toBe("nadine");
     for (const res of [await post(ORIGIN, dev), await post("http://localhost:8788", authEnv)]) {
       expect(res.status).toBe(404);
       expect(cookieValue(res, SESSION_COOKIE)).toBeUndefined();
@@ -295,14 +296,14 @@ describe("OAuth callback", () => {
     githubAnswers(4242);
     const { res, session } = await githubLogin();
     expect(res.status).toBe(302);
-    expect(session).toBe("partner");
+    expect(session).toBe("nadine");
     const [userUrl, userInit] = fetchMock.mock.calls[1]!;
     expect(userUrl).toBe("https://api.github.com/user");
     expect(new Headers(userInit!.headers).get("authorization")).toBe("Bearer gho_test");
   });
   it("github: an empty allowlist lets nobody in and names the id to add", async () => {
     githubAnswers(4242);
-    const { res, session } = await githubLogin({ ...authEnv, ALLOWED_GITHUB: "{}" });
+    const { res, session } = await githubLogin({ ...authEnv, LOGINS: { max: { google: "bob.smith@googlemail.com" } } });
     expect(res.status).toBe(403);
     expect(await res.text()).toContain("id 4242");
     expect(session).toBeNull();
@@ -337,20 +338,20 @@ describe("Worker: who may do what", () => {
     expect(await (await call("/assets/index-abc.js")).text()).toBe("asset");
   });
   it("/api/me is the session user", async () => {
-    expect(await (await call("/api/me", { as: "partner" })).json()).toEqual({ user: "partner" });
+    expect(await (await call("/api/me", { as: "nadine" })).json()).toEqual({ user: "nadine" });
   });
   it("attributes ratings, comments and revisions to the session, ignoring x-user and user cookies", async () => {
     const spoof = { "x-user": "max", cookie: "user=max" };
     const dal = { title: "Dal", sections: [{ ingredients: [] }], steps_md: "", notes_md: "", tags: [] };
     expect((await call("/api/recipes", jsonInit("POST", dal, { as: "max" }))).status).toBe(201);
-    await call("/api/recipes/dal/rating", jsonInit("PUT", { stars: 3 }, { as: "partner", headers: spoof }));
-    await call("/api/comments/c1", jsonInit("PUT", { recipe_id: "dal", body_md: "hi" }, { as: "partner", headers: spoof }));
-    await call("/api/recipes/dal/tags", jsonInit("PATCH", { add: ["course:dessert"] }, { as: "partner", headers: spoof }));
+    await call("/api/recipes/dal/rating", jsonInit("PUT", { stars: 3 }, { as: "nadine", headers: spoof }));
+    await call("/api/comments/c1", jsonInit("PUT", { recipe_id: "dal", body_md: "hi" }, { as: "nadine", headers: spoof }));
+    await call("/api/recipes/dal/tags", jsonInit("PATCH", { add: ["course:dessert"] }, { as: "nadine", headers: spoof }));
     const d = (await (await call("/api/recipes/dal")).json()) as RecipeDetail;
-    expect(d.recipe.ratings).toEqual([{ user: "partner", stars: 3 }]);
-    expect(d.comments.map((c) => c.user)).toEqual(["partner"]);
+    expect(d.recipe.ratings).toEqual([{ user: "nadine", stars: 3 }]);
+    expect(d.comments.map((c) => c.user)).toEqual(["nadine"]);
     const revs = (await (await call("/api/recipes/dal/revisions")).json()) as RevisionListItem[];
-    expect(revs[0]?.author).toBe("partner");
+    expect(revs[0]?.author).toBe("nadine");
     expect((await call("/api/comments/c1", jsonInit("PUT", { recipe_id: "dal", body_md: "mine now" }, { as: "max" }))).status).toBe(403);
   });
 

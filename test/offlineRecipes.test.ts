@@ -24,12 +24,12 @@ describe("recipesToCache", () => {
 });
 
 describe("recipesToKeep", () => {
-  const row = (id: string, ...users: ("max" | "partner")[]) => ({ id, bookmarks: users.map((user) => ({ user, at: T1 })) });
+  const row = (id: string, ...users: ("max" | "nadine")[]) => ({ id, bookmarks: users.map((user) => ({ user, at: T1 })) });
 
   it("adds my bookmarks to the shopping list recipes, once each", () => {
-    const list = [row("a", "max"), row("b", "partner"), row("c", "max", "partner"), row("d")];
+    const list = [row("a", "max"), row("b", "nadine"), row("c", "max", "nadine"), row("d")];
     expect(recipesToKeep(["c", "x"], list, "max")).toEqual(["c", "x", "a"]);
-    expect(recipesToKeep([], list, "partner")).toEqual(["b", "c"]);
+    expect(recipesToKeep([], list, "nadine")).toEqual(["b", "c"]);
   });
 
   it("is just the shopping list until the library list has loaded", () => {

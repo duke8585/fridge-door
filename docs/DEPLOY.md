@@ -17,7 +17,7 @@ Node.
 
 ### Before you fork
 
-- Users: the app has exactly two fixed users, `max` and `partner` (`USERS` in
+- Users: the app has exactly two fixed users, `max` and `nadine` (`USERS` in
   `shared/constants.ts`). Rename them there and in the allowlists if you like; the ids are stored on
   ratings, comments and revisions, so do it before you have data.
 - The header links to this repository (`src/components/Header.tsx`); point it at your fork or drop it.
@@ -76,22 +76,24 @@ Without a custom domain, set `"workers_dev": true` and remove `routes` at the to
 then runs on `https://fridge-door.<your-subdomain>.workers.dev`, and that origin goes into
 `MCP_RESOURCE` and the OAuth redirect URIs below.
 
-## 3. Allowlists
+## 3. Logins
 
-The app has two fixed users, `max` and `partner`. Two vars in `wrangler.jsonc` decide who may log in
-as whom, per environment:
+The app has two fixed users, `max` and `nadine`. The `LOGINS` var in `wrangler.jsonc` decides who
+may log in as whom, per environment, with one entry per person:
 
 ```jsonc
-"ALLOWED_GOOGLE": "{\"alice@example.com\":\"max\",\"bob@example.com\":\"partner\"}",
-"ALLOWED_GITHUB": "{\"1234567\":\"max\"}",
+"LOGINS": {
+  "max": { "google": "alice@example.com", "github": "1234567" },
+  "nadine": { "google": "bob@example.com" }
+}
 ```
 
-- Google keys are email addresses. They compare lowercased, with `googlemail.com` treated as
+- `google` is an email address. It compares lowercased, with `googlemail.com` treated as
   `gmail.com` and dots in gmail local parts ignored.
-- GitHub keys are numeric user ids, not logins (logins can be renamed). A rejected GitHub login
-  shows "GitHub user <login> (id <n>) is not allowed", which is a quick way to find the id.
-- Values must be `max` or `partner`. Empty or invalid JSON, an unknown user or a malformed key
-  turns that provider off: nobody gets in with it.
+- `github` is the numeric user id as a string, not the login (logins can be renamed). A rejected
+  GitHub login shows "GitHub user <login> (id <n>) is not allowed", which is a quick way to find the id.
+- Either login may be left out. The keys must be `max` or `nadine`. An unknown user or field, a
+  malformed key, or the same login under both people turns that provider off: nobody gets in with it.
 - These are plain vars, not secrets. Removing someone does not end a session they already have;
   rotate `SESSION_SECRET` for that.
 

@@ -190,9 +190,9 @@ describe("/authorize", () => {
 
   it("shows the escaped client name and the acting user, with anti-framing headers", async () => {
     const clientId = await register('<img src=x onerror="alert(1)">');
-    const page = await consentPage(clientId, (await pkce()).challenge, "partner");
+    const page = await consentPage(clientId, (await pkce()).challenge, "nadine");
     expect(page.res.status).toBe(200);
-    expect(page.html).toContain("&#60;img src=x onerror=&#34;alert(1)&#34;&#62;</strong> wants to read and edit your Fridge Door recipes as <strong>partner</strong>");
+    expect(page.html).toContain("&#60;img src=x onerror=&#34;alert(1)&#34;&#62;</strong> wants to read and edit your Fridge Door recipes as <strong>nadine</strong>");
     expect(page.html).not.toContain("<img");
     expect(page.res.headers.get("x-frame-options")).toBe("DENY");
     expect(page.res.headers.get("content-security-policy")).toContain("form-action 'self' https://client.example");
@@ -210,7 +210,7 @@ describe("/authorize", () => {
     expect((await approve({ handle: page.handle, user: "max", action: "approve" }, "max", "")).status).toBe(400);
     expect((await approve({ handle: "forged", user: "max", action: "approve" }, "max", page.binding)).status).toBe(400);
     expect((await approve({ handle: page.handle, user: "max", action: "approve" }, null, page.binding)).status).toBe(401);
-    expect((await approve({ handle: page.handle, user: "max", action: "approve" }, "partner", page.binding)).status).toBe(400);
+    expect((await approve({ handle: page.handle, user: "max", action: "approve" }, "nadine", page.binding)).status).toBe(400);
     const ok = await approve({ handle: page.handle, user: "max", action: "approve" }, "max", page.binding);
     expect(ok.status).toBe(302);
     const to = new URL(ok.headers.get("location")!);
@@ -234,9 +234,9 @@ describe("/authorize", () => {
 
 describe("MCP tools", () => {
   it("lists the tools and gives instructions naming the token's user", async () => {
-    const token = await connect("partner");
+    const token = await connect("nadine");
     const init = await rpc(token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
-    expect(init.result.instructions).toContain("You act as partner");
+    expect(init.result.instructions).toContain("You act as nadine");
     const { result } = await rpc(token, "tools/list");
     expect((result.tools as { name: string }[]).map((t) => t.name).sort()).toEqual([
       "add_comment",
@@ -273,7 +273,7 @@ describe("MCP tools", () => {
   });
 
   it("create_recipe lists every lint problem, then saves the fixed recipe as the token's user with source mcp", async () => {
-    const token = await connect("partner");
+    const token = await connect("nadine");
     const bad = await tool(token, "create_recipe", {
       recipe: dal({ title: "DAL MAKHANI 🍲", tags: ["list:next-up"], steps_md: "Rinse. Simmer.", notes_md: "Link in bio", sections: [{ ingredients: [{ item: "lentils", qty: 1, unit: "g" }, { item: "salt" }] }] }),
     });
@@ -287,8 +287,8 @@ describe("MCP tools", () => {
     const good = await tool(token, "create_recipe", { recipe: dal(), review_notes: ["time estimated: 5 prep + 40 simmer"] });
     expect(good.isError).toBeFalsy();
     expect(good.data).toMatchObject({ id: "red-lentil-dal", tags: ["course:main", "cuisine:indian", "method:one-pot"], url: `${TEST_ORIGIN}/recipes/red-lentil-dal` });
-    expect(sqlite.prepare("SELECT author, source FROM recipe_revisions WHERE recipe_id = 'red-lentil-dal'").all()).toEqual([{ author: "partner", source: "mcp" }]);
-    expect(sqlite.prepare("SELECT user, body_md FROM comments").all()).toEqual([{ user: "partner", body_md: "Import notes:\n- time estimated: 5 prep + 40 simmer" }]);
+    expect(sqlite.prepare("SELECT author, source FROM recipe_revisions WHERE recipe_id = 'red-lentil-dal'").all()).toEqual([{ author: "nadine", source: "mcp" }]);
+    expect(sqlite.prepare("SELECT user, body_md FROM comments").all()).toEqual([{ user: "nadine", body_md: "Import notes:\n- time estimated: 5 prep + 40 simmer" }]);
   });
 
   it("create_recipe reports a schema violation precisely", async () => {
@@ -371,29 +371,29 @@ describe("MCP tools", () => {
   it("the guarded write itself refuses a row that changed after the check", async () => {
     const token = await connect("max");
     const created = await tool(token, "create_recipe", { recipe: dal() });
-    const change = { author: "partner", source: "mcp", now: "2099-01-01T00:00:00.000Z" } as const;
+    const change = { author: "nadine", source: "mcp", now: "2099-01-01T00:00:00.000Z" } as const;
     expect(await repo.upsertRecipe(env.DB as D1Database, created.data.id, dal({ title: "Theirs" }), change)).toBe(true);
     expect(await repo.upsertRecipe(env.DB as D1Database, created.data.id, dal({ title: "Ours" }), { ...change, author: "max" }, created.data.updated_at)).toBe(false);
     expect(sqlite.prepare("SELECT title FROM recipes").get()).toEqual({ title: "Theirs" });
-    expect(sqlite.prepare("SELECT author FROM recipe_revisions ORDER BY id").all()).toEqual([{ author: "max" }, { author: "partner" }]);
+    expect(sqlite.prepare("SELECT author FROM recipe_revisions ORDER BY id").all()).toEqual([{ author: "max" }, { author: "nadine" }]);
   });
 
   it("set_bookmark is explicit and per person; search_recipes bookmarked means mine", async () => {
     const max = await connect("max");
-    const partner = await connect("partner");
+    const nadine = await connect("nadine");
     await tool(max, "create_recipe", { recipe: dal() });
     await tool(max, "create_recipe", { recipe: dal({ title: "Kimchi pancakes", source_url: undefined, tags: ["course:snack"] }) });
     const ids = (r: ToolOutput): string[] => r.data.results.map((x: { id: string }) => x.id);
 
     expect((await tool(max, "set_bookmark", { id: "red-lentil-dal", on: true })).data).toEqual({ id: "red-lentil-dal", bookmarked_by: ["max"] });
     expect((await tool(max, "set_bookmark", { id: "red-lentil-dal", on: true })).data.bookmarked_by).toEqual(["max"]);
-    await tool(partner, "set_bookmark", { id: "kimchi-pancakes", on: true });
+    await tool(nadine, "set_bookmark", { id: "kimchi-pancakes", on: true });
 
     expect(ids(await tool(max, "search_recipes", { bookmarked: true }))).toEqual(["red-lentil-dal"]);
-    expect(ids(await tool(partner, "search_recipes", { bookmarked: true }))).toEqual(["kimchi-pancakes"]);
+    expect(ids(await tool(nadine, "search_recipes", { bookmarked: true }))).toEqual(["kimchi-pancakes"]);
     expect((await tool(max, "search_recipes", { bookmarked: false })).data.total).toBe(2);
     expect((await tool(max, "search_recipes", { bookmarked: true, query: "kimchi" })).data.total).toBe(0);
-    expect((await tool(max, "get_recipe", { id: "kimchi-pancakes" })).data.bookmarked_by).toEqual(["partner"]);
+    expect((await tool(max, "get_recipe", { id: "kimchi-pancakes" })).data.bookmarked_by).toEqual(["nadine"]);
 
     expect((await tool(max, "set_bookmark", { id: "red-lentil-dal", on: false })).data.bookmarked_by).toEqual([]);
     expect((await tool(max, "search_recipes", { bookmarked: true })).data.total).toBe(0);
@@ -401,7 +401,7 @@ describe("MCP tools", () => {
   });
 
   it("set_tags, rate, add_comment and add_to_shopping_list act as the token's user", async () => {
-    const token = await connect("partner");
+    const token = await connect("nadine");
     const { data } = await tool(token, "create_recipe", { recipe: dal() });
     const tags = await tool(token, "set_tags", { id: data.id, add: ["method:batch", "list:next-up"], remove: ["method:one-pot"] });
     expect(tags.data.tags).toEqual(["course:main", "cuisine:indian", "method:batch", "list:next-up"]);
@@ -409,13 +409,13 @@ describe("MCP tools", () => {
     expect((await tool(token, "set_tags", { id: data.id, add: ["course:pasta"] })).text).toContain('"course:pasta": course is one of');
     expect((await tool(token, "set_tags", { id: data.id, add: ["vegan"] })).data.tags).toContain("diet:vegan");
     expect((await tool(token, "set_tags", { id: data.id, add: ["course:side", "course:soup"] })).text).toContain("course allows at most 2");
-    expect(sqlite.prepare("SELECT author, source FROM recipe_revisions WHERE recipe_id = ? ORDER BY id DESC LIMIT 1").get(data.id)).toEqual({ author: "partner", source: "mcp" });
+    expect(sqlite.prepare("SELECT author, source FROM recipe_revisions WHERE recipe_id = ? ORDER BY id DESC LIMIT 1").get(data.id)).toEqual({ author: "nadine", source: "mcp" });
 
-    expect((await tool(token, "rate", { id: data.id, stars: 4 })).data.ratings).toEqual({ partner: 4 });
+    expect((await tool(token, "rate", { id: data.id, stars: 4 })).data.ratings).toEqual({ nadine: 4 });
     expect((await tool(token, "rate", { id: data.id, stars: 6 })).isError).toBe(true);
 
     const comment = await tool(token, "add_comment", { id: data.id, body_md: "Needs more **garlic**." });
-    expect(sqlite.prepare("SELECT user, body_md FROM comments WHERE id = ?").get(comment.data.comment_id)).toEqual({ user: "partner", body_md: "Needs more **garlic**." });
+    expect(sqlite.prepare("SELECT user, body_md FROM comments WHERE id = ?").get(comment.data.comment_id)).toEqual({ user: "nadine", body_md: "Needs more **garlic**." });
 
     const shop = await tool(token, "add_to_shopping_list", { id: data.id, scale: 1.5 });
     expect(shop.data).toEqual({ id: data.id, scale: 1.5, added: 2 });
@@ -490,7 +490,7 @@ describe("MCP ingredient catalogue", () => {
   });
 
   it("lookup_ingredients explains a resolution; set_ingredient teaches the catalogue and re-resolves recipes", async () => {
-    const token = await connect("partner");
+    const token = await connect("nadine");
     const created = await tool(token, "create_recipe", { recipe: dal({ sections: [{ ingredients: [{ item: "Granny Smith apples", qty: 2, unit: "piece" }] }] }) });
     const look = await tool(token, "lookup_ingredients", { items: ["eggplants", "Granny Smith apples"] });
     expect(look.data.results).toEqual([

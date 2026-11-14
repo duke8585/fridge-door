@@ -5,8 +5,8 @@
  */
 import OAuthProvider, { type OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { createMcpHandler } from "agents/mcp/server";
-import { UserSchema } from "../shared/schema";
 import { appHandler, type Bindings } from "./app";
+import { users } from "./auth";
 import { createFridgeServer } from "./mcp";
 import { authorize } from "./oauth";
 
@@ -19,10 +19,10 @@ export type Env = Bindings & {
 
 export const mcpApi = {
   fetch(req, env, ctx) {
-    // The grant could predate a change to USERS: only a current user may act.
-    const user = UserSchema.safeParse((ctx.props as { user?: unknown } | undefined)?.user);
-    if (!user.success) return new Response("Forbidden", { status: 403 });
-    const handler = createMcpHandler(() => createFridgeServer({ env, user: user.data, origin: new URL(req.url).origin }));
+    // The grant could predate a change to LOGINS: only a current user may act.
+    const user = (ctx.props as { user?: unknown } | undefined)?.user;
+    if (typeof user !== "string" || !users(env).includes(user)) return new Response("Forbidden", { status: 403 });
+    const handler = createMcpHandler(() => createFridgeServer({ env, user, origin: new URL(req.url).origin }));
     return handler(req, env, ctx);
   },
 } satisfies ExportedHandler<Env>;

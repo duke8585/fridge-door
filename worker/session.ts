@@ -5,7 +5,8 @@
  * Only standard web APIs, so this runs in workerd and in the node unit tests.
  */
 import { z } from "zod";
-import { USERS, type User, UserSchema } from "../shared/schema";
+import { USER_ID_PATTERN } from "../shared/constants";
+import type { User } from "../shared/schema";
 
 export const SESSION_COOKIE = "fd_session";
 export const SESSION_MAX_AGE_S = 90 * 24 * 60 * 60;
@@ -57,13 +58,13 @@ export async function signSession(secret: string, user: User, nowMs: number = Da
   return `${payload}.${await mac(secret, "fd-session.v1", payload)}`;
 }
 
-const SESSION_RE = new RegExp(`^(${USERS.join("|")})\\.(\\d{1,12})\\.([A-Za-z0-9_-]{43})$`);
+const SESSION_RE = new RegExp(`^(${USER_ID_PATTERN})\\.(\\d{1,12})\\.([A-Za-z0-9_-]{43})$`);
 
 export async function verifySession(value: string | undefined, secret: string | undefined, nowMs: number = Date.now()): Promise<User | null> {
   const m = secret ? value?.match(SESSION_RE) : null;
   if (!m || Number(m[2]) <= nowS(nowMs)) return null;
   if (!(await macMatches(secret!, "fd-session.v1", `${m[1]}.${m[2]}`, m[3]!))) return null;
-  return UserSchema.parse(m[1]);
+  return m[1]!;
 }
 
 /** What the start route remembers for the callback. Google adds the PKCE verifier. */

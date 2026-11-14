@@ -35,7 +35,7 @@ const RECORD_TOOL: Anthropic.Beta.BetaTool = {
   strict: true,
 };
 
-const IMPORT_PREAMBLE = `You turn one recipe web page into a recipe draft for Fridge Door, the household recipe box of max and nadine. Follow the normalization contract below exactly.
+const IMPORT_PREAMBLE = `You turn one recipe web page into a recipe draft for Fridge Door, a household recipe box. Follow the normalization contract below exactly.
 
 # How this import works
 

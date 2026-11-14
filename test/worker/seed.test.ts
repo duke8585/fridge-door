@@ -19,7 +19,7 @@ describe("demo seed", () => {
 
   it("has bookmarks for both people", () => {
     const users = sqlite.prepare("SELECT DISTINCT user FROM bookmarks ORDER BY user").all();
-    expect(users).toEqual([{ user: "max" }, { user: "nadine" }]);
+    expect(users).toEqual([{ user: "alice" }, { user: "bob" }]);
   });
 
   it("has valid sections and only tags of the scheme", () => {

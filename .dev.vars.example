@@ -1,6 +1,6 @@
 # Local dev only (vite dev / preview read .dev.vars; `wrangler deploy` never uploads it).
 # predev copies this file to .dev.vars when there is none.
-# DEV_LOGIN adds "log in as max/nadine" buttons to /login, so local dev needs no OAuth app.
+# DEV_LOGIN adds "log in as <user>" buttons, one per LOGINS key, to /login, so local dev needs no OAuth app.
 # It also requires a localhost/127.0.0.1 host, so it cannot work on a deployed Worker.
 SESSION_SECRET=local-dev-only-not-a-secret
 DEV_LOGIN=true

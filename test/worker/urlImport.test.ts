@@ -7,7 +7,7 @@ import type { UrlImportDraft, UrlImportStatus } from "../../shared/urlImport";
 import { classifyOutage } from "../../worker/ai";
 import worker from "../../worker/index";
 import * as repo from "../../worker/repo";
-import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_ORIGIN, TEST_SECRET } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_ORIGIN, TEST_LOGINS, TEST_SECRET } from "./fakes";
 
 let env: Record<string, unknown>;
 let sqlite: DatabaseSync;
@@ -18,7 +18,7 @@ beforeEach(() => {
   sqlite = db.sqlite;
   const r2 = fakeR2();
   objects = r2.objects;
-  env = { ...oauthBindings(), DB: db.d1, COVERS: r2.r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET, ANTHROPIC_API_KEY: "sk-test" };
+  env = { ...oauthBindings(), DB: db.d1, COVERS: r2.r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET, LOGINS: TEST_LOGINS, ANTHROPIC_API_KEY: "sk-test" };
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -27,7 +27,7 @@ afterEach(() => {
 const ctx = (): ExecutionContext => ({ waitUntil: () => {}, passThroughOnException: () => {}, props: {} }) as unknown as ExecutionContext;
 const call = async (path: string, init: AuthedInit = {}): Promise<Response> =>
   (await worker.fetch((await authedRequest(`${TEST_ORIGIN}${path}`, init)) as never, env as never, ctx())) as Response;
-const post = (path: string, body: unknown, as: User = "max"): Promise<Response> =>
+const post = (path: string, body: unknown, as: User = "alice"): Promise<Response> =>
   call(path, { as, method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 // ---------- a fake internet: pages by URL, the Messages API as a queue of replies ----------
@@ -132,7 +132,7 @@ function toolReply(
 
 const apiError = (status: number, type: string, message: string): Response => Response.json({ type: "error", error: { type, message } }, { status });
 
-async function importUrl(body: Record<string, unknown>, as: User = "max"): Promise<{ status: number; data: any }> {
+async function importUrl(body: Record<string, unknown>, as: User = "alice"): Promise<{ status: number; data: any }> {
   const res = await post("/api/import-url", body, as);
   return { status: res.status, data: await res.json() };
 }
@@ -168,7 +168,7 @@ describe("POST /api/import-url", () => {
     expect(user).toContain("<user_notes>\nwe use less salt\n</user_notes>");
 
     const log = sqlite.prepare("SELECT user, model, input_tokens, output_tokens, cache_read_tokens FROM url_import_log").all();
-    expect(log).toEqual([{ user: "max", model: "claude-sonnet-5-5", input_tokens: 1800, output_tokens: 900, cache_read_tokens: 4200 }]);
+    expect(log).toEqual([{ user: "alice", model: "claude-sonnet-5-5", input_tokens: 1800, output_tokens: 900, cache_read_tokens: 4200 }]);
   });
 
   it("falls back to the readable page text, and fences closing tags inside it", async () => {
@@ -233,7 +233,7 @@ describe("POST /api/import-url", () => {
       env.DB as D1Database,
       "dal",
       { ...goodRecipe(), source_url: "https://www.cook.example/dal/" },
-      { author: "max", source: "editor", now: new Date().toISOString() },
+      { author: "alice", source: "editor", now: new Date().toISOString() },
     );
     const first = await importUrl({ url: "http://cook.example/dal?utm_campaign=x" });
     expect(first.status).toBe(409);
@@ -289,7 +289,7 @@ describe("POST /api/import-url", () => {
 
   it("allows 20 imports per user per hour", async () => {
     const recent = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-    for (let i = 0; i < 20; i++) sqlite.prepare("INSERT INTO url_import_log (user, created_at) VALUES ('max', ?)").run(recent);
+    for (let i = 0; i < 20; i++) sqlite.prepare("INSERT INTO url_import_log (user, created_at) VALUES ('alice', ?)").run(recent);
     const limited = await importUrl({ url: "https://cook.example/dal" });
     expect(limited.status).toBe(429);
     expect(limited.data.error).toBe("rate_limited");
@@ -298,7 +298,7 @@ describe("POST /api/import-url", () => {
 
     pages.set("https://cook.example/dal", () => html(ldPage(DAL_LD)));
     claude.push(toolReply({ recipe: goodRecipe(), review_notes: [] }));
-    expect((await importUrl({ url: "https://cook.example/dal" }, "nadine")).status).toBe(200);
+    expect((await importUrl({ url: "https://cook.example/dal" }, "bob")).status).toBe(200);
   });
 
   it("without a key, maps JSON-LD into a draft without AI and says so", async () => {
@@ -401,15 +401,15 @@ describe("POST /api/import-url/save", () => {
     const res = await post(
       "/api/import-url/save",
       { recipe: draft(), review_notes: ["time estimated"], confirm_duplicate: false, cover_url: "https://img.example/dal.png" },
-      "nadine",
+      "bob",
     );
     expect(res.status).toBe(201);
     const data = (await res.json()) as any;
     expect(data.recipe).toMatchObject({ id: "red-lentil-dal", tags: ["course:main", "cuisine:indian", "method:one-pot"] });
     expect(data.recipe.cover_key).toMatch(/^covers\/red-lentil-dal\/[0-9a-f]{16}\.png$/);
     expect(objects.size).toBe(1);
-    expect(data.comments).toEqual([expect.objectContaining({ user: "nadine", body_md: "Import notes:\n- time estimated" })]);
-    expect(sqlite.prepare("SELECT source, author FROM recipe_revisions").all()).toEqual([{ source: "url-import", author: "nadine" }]);
+    expect(data.comments).toEqual([expect.objectContaining({ user: "bob", body_md: "Import notes:\n- time estimated" })]);
+    expect(sqlite.prepare("SELECT source, author FROM recipe_revisions").all()).toEqual([{ source: "url-import", author: "bob" }]);
   });
 
   it("saves the recipe even when the cover fails, and reports it", async () => {

@@ -85,7 +85,7 @@ describe("applyOp (optimistic recipe ops)", () => {
       steps_md: "",
       notes_md: "",
       tags: ["a"],
-      ratings: [{ user: "nadine", stars: 3 }],
+      ratings: [{ user: "bob", stars: 3 }],
       bookmarks: [],
       created_at: "",
       updated_at: "",
@@ -94,19 +94,19 @@ describe("applyOp (optimistic recipe ops)", () => {
     comments: [],
   };
   it("is idempotent for rating replays", () => {
-    const op = { kind: "rating", recipe_id: "r", user: "max", stars: 5 } as const;
+    const op = { kind: "rating", recipe_id: "r", user: "alice", stars: 5 } as const;
     expect(applyOp(applyOp(detail, op), op).recipe.ratings).toEqual([
-      { user: "max", stars: 5 },
-      { user: "nadine", stars: 3 },
+      { user: "alice", stars: 5 },
+      { user: "bob", stars: 3 },
     ]);
   });
   it("sets and resets the cover focus", () => {
-    const set = applyOp(detail, { kind: "cover.focus", recipe_id: "r", user: "max", focus: { x: 20, y: 80 } });
+    const set = applyOp(detail, { kind: "cover.focus", recipe_id: "r", user: "alice", focus: { x: 20, y: 80 } });
     expect(set.recipe.cover_focus).toEqual({ x: 20, y: 80 });
-    expect(applyOp(set, { kind: "cover.focus", recipe_id: "r", user: "max", focus: null }).recipe.cover_focus).toBeNull();
+    expect(applyOp(set, { kind: "cover.focus", recipe_id: "r", user: "alice", focus: null }).recipe.cover_focus).toBeNull();
   });
   it("ignores ops for other recipes", () => {
-    expect(applyOp(detail, { kind: "tags.delta", recipe_id: "other", user: "max", add: ["x"], remove: [] })).toBe(detail);
+    expect(applyOp(detail, { kind: "tags.delta", recipe_id: "other", user: "alice", add: ["x"], remove: [] })).toBe(detail);
   });
 });
 
@@ -125,7 +125,7 @@ describe("tag deltas", () => {
   it("concurrent offline add + online add keep both", () => {
     // Device A is offline and queues "+diet:vegan". Meanwhile device B (online) adds "list:quick".
     const server0 = ["course:main"];
-    const offlineOp: OutboxOp = { kind: "tags.delta", recipe_id: "r", user: "max", add: ["diet:vegan"], remove: [] };
+    const offlineOp: OutboxOp = { kind: "tags.delta", recipe_id: "r", user: "alice", add: ["diet:vegan"], remove: [] };
     const server1 = applyTagDelta(server0, add("list:quick")); // B's PATCH lands first
     // A revalidates while its op is still pending: the fresh server copy plus the pending op shows both.
     const fresh: RecipeDetail = {
@@ -172,7 +172,7 @@ describe("ops queued by a build from before the tag groups", () => {
       },
       comments: [],
     };
-    const old: OutboxOp = { kind: "tags.delta", recipe_id: "r", user: "max", add: ["vegan"], remove: ["next-up"] };
+    const old: OutboxOp = { kind: "tags.delta", recipe_id: "r", user: "alice", add: ["vegan"], remove: ["next-up"] };
     expect(applyOp(d, old).recipe.tags).toEqual(["course:main", "diet:vegan"]);
   });
 });
@@ -193,23 +193,23 @@ describe("applyOpToSummary (library list follows local edits)", () => {
   };
   it("a tag or crop edit moves updated_at to the edit time, never backwards", () => {
     const at = "2026-11-09T10:00:00.000Z";
-    const tagged = applyOpToSummary(s, { kind: "tags.delta", recipe_id: "r", user: "max", add: ["diet:vegan"], remove: [], at });
+    const tagged = applyOpToSummary(s, { kind: "tags.delta", recipe_id: "r", user: "alice", add: ["diet:vegan"], remove: [], at });
     expect(tagged).toMatchObject({ tags: ["course:main", "diet:vegan"], updated_at: at });
-    expect(applyOpToSummary(s, { kind: "cover.focus", recipe_id: "r", user: "max", focus: null, at: "2026-01-01T00:00:00.000Z" }).updated_at).toBe(
+    expect(applyOpToSummary(s, { kind: "cover.focus", recipe_id: "r", user: "alice", focus: null, at: "2026-01-01T00:00:00.000Z" }).updated_at).toBe(
       s.updated_at,
     );
-    expect(applyOpToSummary(s, { kind: "tags.delta", recipe_id: "r", user: "max", add: ["x"], remove: [] }).updated_at).toBe(s.updated_at);
+    expect(applyOpToSummary(s, { kind: "tags.delta", recipe_id: "r", user: "alice", add: ["x"], remove: [] }).updated_at).toBe(s.updated_at);
   });
   it("leaves other recipes and other ops alone", () => {
-    expect(applyOpToSummary(s, { kind: "tags.delta", recipe_id: "other", user: "max", add: ["diet:vegan"], remove: [] })).toBe(s);
-    expect(applyOpToSummary(s, { kind: "rating", recipe_id: "r", user: "max", stars: 5 })).toBe(s);
+    expect(applyOpToSummary(s, { kind: "tags.delta", recipe_id: "other", user: "alice", add: ["diet:vegan"], remove: [] })).toBe(s);
+    expect(applyOpToSummary(s, { kind: "rating", recipe_id: "r", user: "alice", stars: 5 })).toBe(s);
   });
 });
 
 describe("bookmark ops", () => {
   const T = "2026-11-09T10:00:00.000Z";
   const updated = "2026-11-05T00:00:00.000Z";
-  const on = { kind: "bookmark", recipe_id: "r", user: "max", on: true, at: T } as const;
+  const on = { kind: "bookmark", recipe_id: "r", user: "alice", on: true, at: T } as const;
   const off = { ...on, on: false } as const;
   const detail: RecipeDetail = {
     recipe: {
@@ -220,7 +220,7 @@ describe("bookmark ops", () => {
       notes_md: "",
       tags: [],
       ratings: [],
-      bookmarks: [{ user: "nadine", at: "2026-11-01T00:00:00.000Z" }],
+      bookmarks: [{ user: "bob", at: "2026-11-01T00:00:00.000Z" }],
       created_at: "",
       updated_at: updated,
       cover_focus: null,
@@ -244,8 +244,8 @@ describe("bookmark ops", () => {
   it("adds and removes only the user's entry, without moving updated_at", () => {
     const saved = applyOp(detail, on);
     expect(saved.recipe.bookmarks).toEqual([
-      { user: "max", at: T },
-      { user: "nadine", at: "2026-11-01T00:00:00.000Z" },
+      { user: "alice", at: T },
+      { user: "bob", at: "2026-11-01T00:00:00.000Z" },
     ]);
     expect(saved.recipe.updated_at).toBe(updated);
     const removed = applyOp(saved, off);
@@ -259,7 +259,7 @@ describe("bookmark ops", () => {
   });
   it("patches the library row the same way", () => {
     const row = applyOpToSummary(summary, on);
-    expect(row).toEqual({ ...summary, bookmarks: [{ user: "max", at: T }] });
+    expect(row).toEqual({ ...summary, bookmarks: [{ user: "alice", at: T }] });
     expect(applyOpToSummary(row, off)).toEqual(summary);
   });
 });

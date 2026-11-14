@@ -26,11 +26,11 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": true
   },
-  // LOGINS: who may log in as max or nadine (public, not secrets). See docs/DEPLOY.md, "3. Logins".
+  // LOGINS: the users and their logins (public, not secrets). See docs/DEPLOY.md, "3. Logins".
   "vars": {
     "LOGINS": {
-      "max": { "google": "alice@example.com", "github": "1234567" },
-      "nadine": { "google": "bob@example.com" }
+      "alice": { "google": "alice@example.com", "github": "1234567" },
+      "bob": { "google": "bob@example.com" }
     },
     // Public URL of the MCP endpoint, the URL pasted into claude.ai. OAuth tokens are bound to it.
     "MCP_RESOURCE": "https://<recipes.example.com>/mcp"
@@ -62,8 +62,8 @@
       "routes": [],
       "vars": {
         "LOGINS": {
-          "max": { "google": "alice@example.com", "github": "1234567" },
-          "nadine": { "google": "bob@example.com" }
+          "alice": { "google": "alice@example.com", "github": "1234567" },
+          "bob": { "google": "bob@example.com" }
         },
         "MCP_RESOURCE": "https://fridge-door-stg.<your-subdomain>.workers.dev/mcp"
       },

@@ -47,14 +47,14 @@ INSERT OR IGNORE INTO recipes (id, title, yield_amount, yield_unit, sections_jso
  NULL, '["course:sauce","diet:vegan","method:batch"]', '2026-11-04T12:00:00.000Z', '2026-11-04T12:00:00.000Z');
 
 INSERT OR IGNORE INTO ratings (recipe_id, user, stars, updated_at) VALUES
-('pancakes', 'max', 5, '2026-11-05T09:00:00.000Z'),
-('pancakes', 'nadine', 4, '2026-11-05T09:00:00.000Z'),
-('aglio-e-olio', 'max', 4, '2026-11-05T09:00:00.000Z'),
-('lemon-drizzle', 'nadine', 5, '2026-11-05T09:00:00.000Z');
+('pancakes', 'alice', 5, '2026-11-05T09:00:00.000Z'),
+('pancakes', 'bob', 4, '2026-11-05T09:00:00.000Z'),
+('aglio-e-olio', 'alice', 4, '2026-11-05T09:00:00.000Z'),
+('lemon-drizzle', 'bob', 5, '2026-11-05T09:00:00.000Z');
 
 INSERT OR IGNORE INTO comments (id, recipe_id, user, body_md, created_at, updated_at) VALUES
-('c-seed-1', 'pancakes', 'nadine', 'Used **buttermilk** instead of milk - even fluffier.', '2026-11-05T09:10:00.000Z', '2026-11-05T09:10:00.000Z'),
-('c-seed-2', 'aglio-e-olio', 'max', 'Add lemon zest at the end.', '2026-11-05T19:00:00.000Z', '2026-11-05T19:00:00.000Z');
+('c-seed-1', 'pancakes', 'bob', 'Used **buttermilk** instead of milk - even fluffier.', '2026-11-05T09:10:00.000Z', '2026-11-05T09:10:00.000Z'),
+('c-seed-2', 'aglio-e-olio', 'alice', 'Add lemon zest at the end.', '2026-11-05T19:00:00.000Z', '2026-11-05T19:00:00.000Z');
 
 INSERT OR IGNORE INTO recipes (id, title, yield_amount, yield_unit, sections_json, steps_md, notes_md, source_url, tags_json, created_at, updated_at) VALUES
 ('shakshuka', 'Shakshuka', 2, 'servings',
@@ -103,13 +103,13 @@ INSERT OR IGNORE INTO recipes (id, title, yield_amount, yield_unit, sections_jso
  'Never boil the miso.', NULL, '["course:soup","cuisine:japanese","diet:vegan"]', '2026-11-09T19:00:00.000Z', '2026-11-09T19:00:00.000Z');
 
 INSERT OR IGNORE INTO ratings (recipe_id, user, stars, updated_at) VALUES
-('shakshuka', 'max', 5, '2026-11-09T09:00:00.000Z'),
-('shakshuka', 'nadine', 5, '2026-11-09T09:00:00.000Z'),
-('chickpea-curry', 'nadine', 4, '2026-11-09T09:00:00.000Z'),
-('banana-bread', 'max', 4, '2026-11-09T09:00:00.000Z');
+('shakshuka', 'alice', 5, '2026-11-09T09:00:00.000Z'),
+('shakshuka', 'bob', 5, '2026-11-09T09:00:00.000Z'),
+('chickpea-curry', 'bob', 4, '2026-11-09T09:00:00.000Z'),
+('banana-bread', 'alice', 4, '2026-11-09T09:00:00.000Z');
 
 INSERT OR IGNORE INTO bookmarks (recipe_id, user, created_at) VALUES
-('pancakes', 'max', '2026-11-09T10:00:00.000Z'),
-('pancakes', 'nadine', '2026-11-09T10:30:00.000Z'),
-('shakshuka', 'max', '2026-11-10T08:00:00.000Z'),
-('banana-bread', 'nadine', '2026-11-10T18:00:00.000Z');
+('pancakes', 'alice', '2026-11-09T10:00:00.000Z'),
+('pancakes', 'bob', '2026-11-09T10:30:00.000Z'),
+('shakshuka', 'alice', '2026-11-10T08:00:00.000Z'),
+('banana-bread', 'bob', '2026-11-10T18:00:00.000Z');

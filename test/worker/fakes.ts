@@ -85,11 +85,12 @@ export function fakeR2(): { r2: R2Bucket; objects: Map<string, StoredObject> } {
 
 export const TEST_SECRET = "test-session-secret";
 export const TEST_IMPORT_TOKEN = "test-import-token";
+export const TEST_LOGINS = { alice: {}, bob: {} };
 
-/** `as`: the session user to send (default max), or null for no session cookie. */
+/** `as`: the session user to send (default alice), or null for no session cookie. */
 export type AuthedInit = RequestInit & { as?: User | null };
 
-export async function authedRequest(url: string, { as = "max", ...init }: AuthedInit = {}): Promise<Request> {
+export async function authedRequest(url: string, { as = "alice", ...init }: AuthedInit = {}): Promise<Request> {
   const req = new Request(url, init);
   if (as) req.headers.append("cookie", `${SESSION_COOKIE}=${await signSession(TEST_SECRET, as)}`);
   return req;

@@ -24,11 +24,11 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   bookmark the new recipe.
 - **Tags** in groups (`course:main`, `cuisine:thai`, `list:next-up`, ...), defined once in
   `shared/tags.ts`. The list filters by group and searches titles, ingredients, tags and notes.
-- **Shopping list** shared between both people, filled from a recipe at its current scale. Items
+- **Shopping list** shared by the household, filled from a recipe at its current scale. Items
   are grouped by ingredient base ("red apple" and "apples" are one "apple") under aisle headings,
-  in one household aisle order that either person can reorder. Staples such as water and ice sit
+  in one household aisle order that anyone can reorder. Staples such as water and ice sit
   last under "Likely at home". "change category" on an item is permanent and shared: it moves the
-  item for both of you and every later time it lands on the list, from any recipe. The cart
+  item for everyone and every later time it lands on the list, from any recipe. The cart
   opens it as a side panel on wide screens and as its own page on phones, with a pinned search.
 - **Ingredient catalogue** in D1 (`shared/catalogue.ts`): canonical bases with aliases and an aisle.
   Every saved ingredient gets a base through catalogue lookup, deterministic rules, or Claude
@@ -41,7 +41,7 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   page into a draft in the editor. Without an API key, pages with schema.org Recipe data are still
   mapped field by field.
 - **MCP server** at `/mcp`, so Claude (claude.ai connectors, Claude Code) can search, read, create
-  and edit recipes as one of the two people.
+  and edit recipes as one of the users.
 - **Appearance** with a header light/dark switch. The app follows your system until you choose
   a theme, then remembers that choice on the device. The header also links to the GitHub repository.
 - **Login** with Google or GitHub, limited to an allowlist.
@@ -120,8 +120,8 @@ optimistically and queued in an outbox of idempotent requests. The shopping list
 with last-write-wins on the edit time and tombstones for deletes, and polls with a server
 revision cursor.
 
-The app has exactly two users, with the fixed ids `max` and `nadine` (`USERS` in
-`shared/constants.ts`). `LOGINS` in `wrangler.jsonc` maps each id to its Google email and GitHub user id.
+The users are the keys of `LOGINS` in `wrangler.jsonc`, each with its Google email and GitHub user
+id. Adding a person is a config change and a deploy; removing one ends their sessions.
 
 ## Local development
 
@@ -136,10 +136,10 @@ npm run dev
 `.dev.vars` when they are missing, applies the migrations to a local D1, seeds the demo recipes
 and serves the app on http://localhost:8788.
 
-OAuth providers cannot redirect back to localhost, so `.dev.vars` sets `DEV_LOGIN=true`. The login
-page then offers "log in as max" and "log in as nadine". Dev login also requires a localhost or
+`.dev.vars` sets `DEV_LOGIN=true`, so local dev needs no OAuth app: the login page offers
+"log in as <user>" for each `LOGINS` key. Dev login also requires a localhost or
 127.0.0.1 host, and `wrangler deploy` never uploads `.dev.vars`, so it cannot work on a deployed
-Worker. Open a normal and a private window to act as both people at once.
+Worker. Open a normal and a private window to act as two users at once.
 
 Link import needs `ANTHROPIC_API_KEY` in `.dev.vars`. Without it the import still works without AI.
 

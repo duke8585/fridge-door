@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { contentOf, type Revision, type RevisionListItem } from "../../shared/revisions";
 import type { ImportRecord, Recipe, RecipeInput, User } from "../../shared/schema";
 import worker from "../../worker/index";
-import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_SECRET } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_LOGINS, TEST_SECRET } from "./fakes";
 
-let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string };
+let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string; LOGINS: unknown };
 let sqlite: DatabaseSync;
 const T0 = new Date("2026-11-08T10:00:00.000Z").getTime();
 const at = (min: number): void => {
@@ -18,7 +18,7 @@ beforeEach(() => {
   at(0);
   const db = fakeD1(resolve(import.meta.dirname, "../../migrations"));
   sqlite = db.sqlite;
-  env = { ...oauthBindings(), DB: db.d1, COVERS: fakeR2().r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET };
+  env = { ...oauthBindings(), DB: db.d1, COVERS: fakeR2().r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET, LOGINS: TEST_LOGINS };
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -32,7 +32,7 @@ const call = async <T>(path: string, init: AuthedInit = {}): Promise<{ status: n
   )) as Response;
   return { status: res.status, body: (await res.json()) as T };
 };
-const send = (method: string, body: unknown, as: User = "max"): AuthedInit => ({
+const send = (method: string, body: unknown, as: User = "alice"): AuthedInit => ({
   method,
   as,
   headers: { "content-type": "application/json" },
@@ -76,11 +76,11 @@ describe("revisions on editor saves", () => {
   it("records the created content, then each change with author and a summary", async () => {
     const { body: created } = await call<Recipe>("/recipes", send("POST", dal));
     at(1);
-    await call(`/recipes/${created.id}`, send("PUT", { ...dal, title: "Dal tadka", tags: ["course:main", "diet:vegan"] }, "nadine"));
+    await call(`/recipes/${created.id}`, send("PUT", { ...dal, title: "Dal tadka", tags: ["course:main", "diet:vegan"] }, "bob"));
     const list = await revisions(created.id);
     expect(brief(list)).toEqual([
-      ["editor", "nadine", ["title", "tags +diet:vegan"]],
-      ["editor", "max", []],
+      ["editor", "bob", ["title", "tags +diet:vegan"]],
+      ["editor", "alice", []],
     ]);
     expect(list[0]!.created_at).toBe("2026-11-08T10:01:00.000Z");
     expect((await revision(created.id, list[0]!.id)).snapshot).toEqual({ ...dal, title: "Dal tadka", tags: ["course:main", "diet:vegan"] });
@@ -110,7 +110,7 @@ describe("baseline backfill", () => {
     await call("/recipes/pancakes", send("PUT", { ...pancakes, steps_md: "1. Mix.\n2. Fry." }));
     const list = await revisions("pancakes");
     expect(brief(list)).toEqual([
-      ["editor", "max", ["steps"]],
+      ["editor", "alice", ["steps"]],
       ["baseline", null, []],
     ]);
     expect(list[1]!.created_at).toBe("2026-11-01T08:00:00.000Z");
@@ -125,9 +125,9 @@ describe("baseline backfill", () => {
 
   it("a tag change is a first change too", async () => {
     seedRow();
-    await call("/recipes/pancakes/tags", send("PATCH", { add: ["course:dessert"] }, "nadine"));
+    await call("/recipes/pancakes/tags", send("PATCH", { add: ["course:dessert"] }, "bob"));
     expect(brief(await revisions("pancakes"))).toEqual([
-      ["tags", "nadine", ["tags +course:dessert"]],
+      ["tags", "bob", ["tags +course:dessert"]],
       ["baseline", null, []],
     ]);
   });
@@ -135,7 +135,7 @@ describe("baseline backfill", () => {
 
 describe("tag revisions coalesce per user for 10 minutes", () => {
   beforeEach(() => seedRow());
-  const tag = (delta: { add?: string[]; remove?: string[] }, user: User = "max") => call("/recipes/pancakes/tags", send("PATCH", delta, user));
+  const tag = (delta: { add?: string[]; remove?: string[] }, user: User = "alice") => call("/recipes/pancakes/tags", send("PATCH", delta, user));
 
   it("folds the same user's tag edits into their latest tags revision", async () => {
     await tag({ add: ["course:dessert"] });
@@ -145,7 +145,7 @@ describe("tag revisions coalesce per user for 10 minutes", () => {
     await tag({ remove: ["course:breakfast"] });
     const list = await revisions("pancakes");
     expect(brief(list)).toEqual([
-      ["tags", "max", ["tags +course:dessert +list:quick -course:breakfast"]],
+      ["tags", "alice", ["tags +course:dessert +list:quick -course:breakfast"]],
       ["baseline", null, []],
     ]);
     expect(list[0]!.created_at).toBe("2026-11-08T10:09:00.000Z");
@@ -156,7 +156,7 @@ describe("tag revisions coalesce per user for 10 minutes", () => {
     at(11);
     await tag({ add: ["list:b"] });
     at(12);
-    await tag({ add: ["list:c"] }, "nadine");
+    await tag({ add: ["list:c"] }, "bob");
     at(13);
     await tag({ add: ["list:d"] });
     at(14);
@@ -164,12 +164,12 @@ describe("tag revisions coalesce per user for 10 minutes", () => {
     at(15);
     await tag({ add: ["list:e"] });
     expect(brief(await revisions("pancakes"))).toEqual([
-      ["tags", "max", ["tags +list:e"]],
-      ["editor", "max", ["title"]],
-      ["tags", "max", ["tags +list:d"]],
-      ["tags", "nadine", ["tags +list:c"]],
-      ["tags", "max", ["tags +list:b"]],
-      ["tags", "max", ["tags +list:a"]],
+      ["tags", "alice", ["tags +list:e"]],
+      ["editor", "alice", ["title"]],
+      ["tags", "alice", ["tags +list:d"]],
+      ["tags", "bob", ["tags +list:c"]],
+      ["tags", "alice", ["tags +list:b"]],
+      ["tags", "alice", ["tags +list:a"]],
       ["baseline", null, []],
     ]);
   });
@@ -199,12 +199,12 @@ describe("revisions on import", () => {
   it("records created and updated, nothing for unchanged or ratings-only records", async () => {
     const { body } = await put(rec());
     await put(rec());
-    await put(rec({}, { ratings: [{ user: "max", stars: 5 }] }));
+    await put(rec({}, { ratings: [{ user: "alice", stars: 5 }] }));
     at(1);
-    await put(rec({ notes_md: "Better the next day." }, { ratings: [{ user: "max", stars: 5 }] }));
+    await put(rec({ notes_md: "Better the next day." }, { ratings: [{ user: "alice", stars: 5 }] }));
     expect(brief(await revisions(body.id))).toEqual([
-      ["import", "max", ["notes"]],
-      ["import", "max", []],
+      ["import", "alice", ["notes"]],
+      ["import", "alice", []],
     ]);
   });
 
@@ -227,15 +227,15 @@ describe("restore", () => {
     );
     const baseline = (await revisions("pancakes")).at(-1)!;
     at(2);
-    const res = await call<Recipe>(`/recipes/pancakes/revisions/${baseline.id}/restore`, send("POST", {}, "nadine"));
+    const res = await call<Recipe>(`/recipes/pancakes/revisions/${baseline.id}/restore`, send("POST", {}, "bob"));
     expect(res.status).toBe(200);
     const withBase = { ...pancakes, sections: [{ ingredients: [{ item: "flour", qty: 200, unit: "g" as const, base: "flour" }] }] };
     expect(contentOf(res.body)).toEqual(contentOf({ ...withBase, yield: { amount: 4, unit: "servings" } }));
     expect(contentOf(await recipe("pancakes"))).toEqual(contentOf(withBase));
-    expect((await recipe("pancakes")).ratings).toEqual([{ user: "max", stars: 5 }]);
+    expect((await recipe("pancakes")).ratings).toEqual([{ user: "alice", stars: 5 }]);
     expect(brief(await revisions("pancakes"))).toEqual([
-      ["restore", "nadine", ["title", "tags +course:breakfast", "ingredients +1 -1"]],
-      ["editor", "max", ["title", "tags -course:breakfast", "ingredients +1 -1"]],
+      ["restore", "bob", ["title", "tags +course:breakfast", "ingredients +1 -1"]],
+      ["editor", "alice", ["title", "tags -course:breakfast", "ingredients +1 -1"]],
       ["baseline", null, []],
     ]);
   });

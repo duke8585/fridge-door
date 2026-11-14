@@ -3,9 +3,9 @@ import type { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bookmark, Recipe, RecipeSummary, User } from "../../shared/schema";
 import worker from "../../worker/index";
-import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_SECRET } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_LOGINS, TEST_SECRET } from "./fakes";
 
-let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string };
+let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string; LOGINS: unknown };
 let sqlite: DatabaseSync;
 const T0 = new Date("2026-11-08T10:00:00.000Z").getTime();
 const at = (min: number): void => {
@@ -17,7 +17,7 @@ beforeEach(() => {
   at(0);
   const db = fakeD1(resolve(import.meta.dirname, "../../migrations"));
   sqlite = db.sqlite;
-  env = { ...oauthBindings(), DB: db.d1, COVERS: fakeR2().r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET };
+  env = { ...oauthBindings(), DB: db.d1, COVERS: fakeR2().r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET, LOGINS: TEST_LOGINS };
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -31,13 +31,13 @@ const call = async <T>(path: string, init: AuthedInit = {}): Promise<{ status: n
   )) as Response;
   return { status: res.status, body: (await res.json()) as T };
 };
-const send = (method: string, body: unknown, as: User = "max"): AuthedInit => ({
+const send = (method: string, body: unknown, as: User = "alice"): AuthedInit => ({
   method,
   as,
   headers: { "content-type": "application/json" },
   body: JSON.stringify(body),
 });
-const bookmark = (id: string, on: boolean, as: User = "max") => call<Recipe>(`/recipes/${id}/bookmark`, send("PUT", { on }, as));
+const bookmark = (id: string, on: boolean, as: User = "alice") => call<Recipe>(`/recipes/${id}/bookmark`, send("PUT", { on }, as));
 const listed = async (id: string): Promise<Bookmark[]> => (await call<RecipeSummary[]>("/recipes")).body.find((r) => r.id === id)!.bookmarks;
 const updatedAt = async (id: string): Promise<string> => (await call<{ recipe: Recipe }>(`/recipes/${id}`)).body.recipe.updated_at;
 
@@ -50,21 +50,21 @@ describe("PUT /recipes/:id/bookmark", () => {
 
   it("is per person, shown in the recipe and the list, and removed on off", async () => {
     at(1);
-    expect((await bookmark("dal", true, "max")).body.bookmarks).toEqual([{ user: "max", at: "2026-11-08T10:01:00.000Z" }]);
+    expect((await bookmark("dal", true, "alice")).body.bookmarks).toEqual([{ user: "alice", at: "2026-11-08T10:01:00.000Z" }]);
     at(2);
-    await bookmark("dal", true, "nadine");
+    await bookmark("dal", true, "bob");
     expect(await listed("dal")).toEqual([
-      { user: "max", at: "2026-11-08T10:01:00.000Z" },
-      { user: "nadine", at: "2026-11-08T10:02:00.000Z" },
+      { user: "alice", at: "2026-11-08T10:01:00.000Z" },
+      { user: "bob", at: "2026-11-08T10:02:00.000Z" },
     ]);
-    expect((await bookmark("dal", false, "max")).body.bookmarks.map((b) => b.user)).toEqual(["nadine"]);
+    expect((await bookmark("dal", false, "alice")).body.bookmarks.map((b) => b.user)).toEqual(["bob"]);
   });
 
   it("is idempotent and keeps the first created_at", async () => {
     at(1);
     await bookmark("dal", true);
     at(5);
-    expect((await bookmark("dal", true)).body.bookmarks).toEqual([{ user: "max", at: "2026-11-08T10:01:00.000Z" }]);
+    expect((await bookmark("dal", true)).body.bookmarks).toEqual([{ user: "alice", at: "2026-11-08T10:01:00.000Z" }]);
     await bookmark("dal", false);
     expect((await bookmark("dal", false)).status).toBe(200);
     expect(await listed("dal")).toEqual([]);

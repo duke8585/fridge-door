@@ -52,7 +52,7 @@ const bookmarkedBy = (bookmarks: readonly Bookmark[]): User[] => bookmarks.map((
 
 function serverInstructions(user: User): string {
   return [
-    `Fridge Door is the household recipe box of max and nadine. You act as ${user}; every change is attributed to ${user}.`,
+    `Fridge Door is a household recipe box. You act as ${user}; every change is attributed to ${user}.`,
     "Call get_style_guide once before your first create_recipe or update_recipe and follow it exactly: English, metric units, a numbered steps list, tags only from the vocabulary.",
     "create_recipe and update_recipe reject recipes that break the guide and list every problem; fix all of them and retry.",
     "create_recipe also stops on a likely duplicate and shows the candidates. Retry with confirm_duplicate: true only when it is really a different recipe.",

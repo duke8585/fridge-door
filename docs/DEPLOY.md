@@ -17,9 +17,8 @@ Node.
 
 ### Before you fork
 
-- Users: the app has exactly two fixed users, `max` and `nadine` (`USERS` in
-  `shared/constants.ts`). Rename them there and in `LOGINS` if you like; the ids are stored on
-  ratings, comments and revisions, so do it before you have data.
+- Users: the keys of `LOGINS` (step 3) are the user ids, as many as you like. The ids are stored on
+  ratings, comments, bookmarks and revisions, so pick them before you have data.
 - The header links to this repository (`src/components/Header.tsx`); point it at your fork or drop it.
 - Migrations 0006 and 0007 were data migrations for the original library (tag renames, diet tags
   by recipe id). On a fresh database they find nothing to change, so keep them in the sequence.
@@ -78,13 +77,14 @@ then runs on `https://fridge-door.<your-subdomain>.workers.dev`, and that origin
 
 ## 3. Logins
 
-The app has two fixed users, `max` and `nadine`. The `LOGINS` var in `wrangler.jsonc` decides who
-may log in as whom, per environment, with one entry per person:
+The `LOGINS` var in `wrangler.jsonc` lists the users and how each logs in, per environment, with
+one entry per person. The keys are the user ids: lowercase letters, digits and `-`, starting with a
+letter, up to 32 characters.
 
 ```jsonc
 "LOGINS": {
-  "max": { "google": "alice@example.com", "github": "1234567" },
-  "nadine": { "google": "bob@example.com" }
+  "alice": { "google": "alice@example.com", "github": "1234567" },
+  "bob": { "google": "bob@example.com" }
 }
 ```
 
@@ -92,10 +92,11 @@ may log in as whom, per environment, with one entry per person:
   `gmail.com` and dots in gmail local parts ignored.
 - `github` is the numeric user id as a string, not the login (logins can be renamed). A rejected
   GitHub login shows "GitHub user <login> (id <n>) is not allowed", which is a quick way to find the id.
-- Either login may be left out. The keys must be `max` or `nadine`. An unknown user or field turns
-  both providers off. A malformed key or the same login under both people turns that provider off.
-- These are plain vars, not secrets. Removing someone does not end a session they already have;
-  rotate `SESSION_SECRET` for that.
+- Either login may be left out. An invalid user id or an unknown field turns both providers off.
+  A malformed key or the same login under two people turns that provider off.
+- The import token (`IMPORT_TOKEN`) acts as the first user in `LOGINS`.
+- These are plain vars, not secrets. Removing someone from `LOGINS` ends their sessions and their
+  MCP connections on the next request.
 
 ## 4. OAuth apps
 
@@ -130,7 +131,7 @@ Secrets are set per environment and never live in the repository.
 | `SESSION_SECRET`                           | yes                                             | HMAC key for the session and OAuth state cookies. Rotating it logs everyone out                                                                                                                                                                                            |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for Google login                                | from step 4                                                                                                                                                                                                                                                                |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | for GitHub login                                | from step 4                                                                                                                                                                                                                                                                |
-| `IMPORT_TOKEN`                             | for `npm run load-import` and the base backfill | bearer token accepted only on `PUT /api/import/:ref`, `PUT /api/recipes/:id/cover` and `PUT /api/catalogue/backfill`, acting as `max`                                                                                                                                      |
+| `IMPORT_TOKEN`                             | for `npm run load-import` and the base backfill | bearer token accepted only on `PUT /api/import/:ref`, `PUT /api/recipes/:id/cover` and `PUT /api/catalogue/backfill`, acting as the first user in `LOGINS`                                                                                                                 |
 | `ANTHROPIC_API_KEY`                        | optional                                        | link import with Claude, and Claude Haiku for ingredient names the catalogue does not know. Without it, link import still works (schema.org Recipe data is mapped field by field, other pages become stubs) and unknown ingredients get a rule-based base in aisle "other" |
 
 Production:

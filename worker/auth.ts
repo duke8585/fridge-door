@@ -11,7 +11,7 @@
  *   browsers fetch the manifest without cookies.
  */
 import { z } from "zod";
-import { USERS, type User, UserSchema } from "../shared/schema";
+import { type User, UserSchema } from "../shared/schema";
 import {
   b64url,
   constantTimeEqual,
@@ -43,9 +43,8 @@ export type AuthEnv = {
 };
 
 export const PUBLIC_PATHS: ReadonlySet<string> = new Set(["/manifest.webmanifest", "/icon.svg", "/favicon.ico"]);
-/** The loader (scripts/load-import.ts) and the base backfill may use `Authorization: Bearer <IMPORT_TOKEN>` here, acting as max. */
+/** The loader (scripts/load-import.ts) and the base backfill may use `Authorization: Bearer <IMPORT_TOKEN>` here, acting as the first user in LOGINS. */
 const BEARER_ROUTES: readonly RegExp[] = [/^\/api\/import\/[^/]+$/, /^\/api\/recipes\/[^/]+\/cover$/, /^\/api\/catalogue\/backfill$/];
-export const IMPORT_USER: User = "max";
 
 const NO_STORE = { "cache-control": "no-store" };
 
@@ -66,17 +65,24 @@ const NORMALIZE_KEY: Record<ProviderId, (k: string) => string | null> = {
   github: (k) => (/^\d+$/.test(k) ? k : null),
 };
 
-const LoginsSchema = z.partialRecord(UserSchema, z.strictObject({ google: z.string().optional(), github: z.string().optional() }));
+const LoginsSchema = z.record(UserSchema, z.strictObject({ google: z.string().optional(), github: z.string().optional() }));
+type Logins = z.infer<typeof LoginsSchema>;
 
-export function allowlist(logins: unknown, provider: ProviderId): ReadonlyMap<string, User> {
-  const parsed = LoginsSchema.safeParse(logins);
-  const entries = parsed.success
-    ? Object.entries(parsed.data).flatMap(([user, ids]) =>
-        ids?.[provider] === undefined ? [] : [[NORMALIZE_KEY[provider](ids[provider]), user as User] as const],
-      )
-    : [];
+/** The people who exist are the keys of LOGINS. Invalid config means nobody. */
+function parseLogins(raw: unknown): Logins {
+  const parsed = LoginsSchema.safeParse(raw);
+  if (!parsed.success) console.error("invalid LOGINS config; nobody can log in");
+  return parsed.success ? parsed.data : {};
+}
+
+export const users = (env: AuthEnv): User[] => Object.keys(parseLogins(env.LOGINS));
+
+export function allowlist(raw: unknown, provider: ProviderId): ReadonlyMap<string, User> {
+  const entries = Object.entries(parseLogins(raw)).flatMap(([user, ids]) =>
+    ids[provider] === undefined ? [] : [[NORMALIZE_KEY[provider](ids[provider]), user] as const],
+  );
   const keys = entries.map(([k]) => k);
-  if (!parsed.success || keys.includes(null) || new Set(keys).size < keys.length) {
+  if (keys.includes(null) || new Set(keys).size < keys.length) {
     console.error(`invalid LOGINS config; nobody can log in with ${provider}`);
     return new Map();
   }
@@ -242,11 +248,13 @@ function errorPage(status: number, message: string, next: string, headers?: Head
   return page(status, `<p class="err" role="alert">${escapeHtml(message)}</p><a class="btn" href="${escapeHtml(loginHref(next))}">Back to login</a>`, headers);
 }
 
-function loginPage(next: string, dev: boolean): Response {
+function loginPage(next: string, dev: boolean, env: AuthEnv): Response {
   const q = next === "/" ? "" : `?next=${encodeURIComponent(next)}`;
   const devForm = dev
     ? `<form method="post" action="/auth/dev"><p class="muted">Local dev only</p><input type="hidden" name="next" value="${escapeHtml(next)}">
-${USERS.map((u) => `<button type="submit" name="user" value="${u}">Dev: log in as ${u}</button>`).join("")}</form>`
+${users(env)
+  .map((u) => `<button type="submit" name="user" value="${u}">Dev: log in as ${u}</button>`)
+  .join("")}</form>`
     : "";
   return page(
     200,
@@ -289,8 +297,8 @@ export async function authRoutes(req: Request, env: AuthEnv, nowMs: number = Dat
   }
   if (path === "/login") {
     const next = safeNext(url.searchParams.get("next"));
-    if (await verifySession(readCookie(req, SESSION_COOKIE), env.SESSION_SECRET, nowMs)) return redirect(next);
-    return loginPage(next, devLoginEnabled(url, env));
+    if (await sessionUser(req, env, nowMs)) return redirect(next);
+    return loginPage(next, devLoginEnabled(url, env), env);
   }
   if (!path.startsWith("/auth/")) return undefined;
 
@@ -299,14 +307,10 @@ export async function authRoutes(req: Request, env: AuthEnv, nowMs: number = Dat
 
   if (path === "/auth/dev" && req.method === "POST" && devLoginEnabled(url, env)) {
     const form = await req.formData().catch(() => undefined);
-    const user = UserSchema.safeParse(form?.get("user"));
+    const user = form?.get("user");
     const next = form?.get("next");
-    if (!user.success) return errorPage(400, "Pick max or nadine.", "/");
-    return redirect(
-      safeNext(typeof next === "string" ? next : "/"),
-      [cookie(SESSION_COOKIE, await signSession(secret, user.data, nowMs), SESSION_MAX_AGE_S)],
-      303,
-    );
+    if (typeof user !== "string" || !users(env).includes(user)) return errorPage(400, "Pick one of the users.", "/");
+    return redirect(safeNext(typeof next === "string" ? next : "/"), [cookie(SESSION_COOKIE, await signSession(secret, user, nowMs), SESSION_MAX_AGE_S)], 303);
   }
 
   const m = path.match(/^\/auth\/(google|github)\/(start|callback)$/);
@@ -355,13 +359,19 @@ export async function authRoutes(req: Request, env: AuthEnv, nowMs: number = Dat
 }
 
 /** The acting user: the session, or on the import routes a matching IMPORT_TOKEN bearer. Never anything the client claims. */
+/** The session's user while they are still in LOGINS, so removing someone ends their sessions. */
+export async function sessionUser(req: Request, env: AuthEnv, nowMs: number = Date.now()): Promise<User | null> {
+  const user = await verifySession(readCookie(req, SESSION_COOKIE), env.SESSION_SECRET, nowMs);
+  return user && users(env).includes(user) ? user : null;
+}
+
 export async function requestUser(req: Request, env: AuthEnv, nowMs: number = Date.now()): Promise<User | null> {
-  const session = await verifySession(readCookie(req, SESSION_COOKIE), env.SESSION_SECRET, nowMs);
+  const session = await sessionUser(req, env, nowMs);
   if (session) return session;
   const bearer = req.headers.get("authorization")?.match(/^Bearer (\S+)$/)?.[1];
   if (!bearer || !env.IMPORT_TOKEN || req.method !== "PUT") return null;
   if (!BEARER_ROUTES.some((r) => r.test(new URL(req.url).pathname))) return null;
-  return (await constantTimeEqual(bearer, env.IMPORT_TOKEN)) ? IMPORT_USER : null;
+  return (await constantTimeEqual(bearer, env.IMPORT_TOKEN)) ? (users(env)[0] ?? null) : null;
 }
 
 /** Response for a request without a valid session (non-/api; Hono answers /api with 401 JSON). */

@@ -6,8 +6,7 @@
  */
 import { AuthorizationError, type AuthRequest, type ConsentDescription, type OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import type { User } from "../shared/schema";
-import { type AuthEnv, escapeHtml, page } from "./auth";
-import { readCookie, SESSION_COOKIE, verifySession } from "./session";
+import { type AuthEnv, escapeHtml, page, sessionUser } from "./auth";
 
 /** What every MCP token carries. index.ts re-validates it on each /mcp request. */
 export type GrantProps = { user: User };
@@ -42,7 +41,7 @@ function redirectWith(headers: Headers, location?: string): Response {
 }
 
 export async function authorize(req: Request, env: AuthorizeEnv): Promise<Response> {
-  const user = await verifySession(readCookie(req, SESSION_COOKIE), env.SESSION_SECRET);
+  const user = await sessionUser(req, env);
 
   if (req.method === "GET") {
     let authRequest: AuthRequest;

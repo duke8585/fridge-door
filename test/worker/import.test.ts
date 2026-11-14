@@ -2,9 +2,9 @@ import { resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ImportRecord, ImportResult, Recipe, RecipeDetail, RecipeSummary } from "../../shared/schema";
 import worker from "../../worker/index";
-import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_IMPORT_TOKEN, TEST_SECRET } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_IMPORT_TOKEN, TEST_LOGINS, TEST_SECRET } from "./fakes";
 
-let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string; IMPORT_TOKEN: string };
+let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string; LOGINS: unknown; IMPORT_TOKEN: string };
 let objects: Map<string, StoredObject>;
 
 beforeEach(() => {
@@ -16,6 +16,7 @@ beforeEach(() => {
     COVERS: r2,
     ASSETS: {} as Fetcher,
     SESSION_SECRET: TEST_SECRET,
+    LOGINS: TEST_LOGINS,
     IMPORT_TOKEN: TEST_IMPORT_TOKEN,
   };
 });
@@ -36,12 +37,12 @@ function record(over: Partial<ImportRecord> = {}): ImportRecord {
     section: "GOOD",
     cover: "111/222.jpeg",
     ratings: [
-      { user: "max", stars: 5 },
-      { user: "nadine", stars: 5 },
+      { user: "alice", stars: 5 },
+      { user: "bob", stars: 5 },
     ],
     comments: [
-      { user: "max", body_md: "Less salt next time.", created_at: "2025-01-02T10:00:00.000Z" },
-      { user: "nadine", body_md: "Lecker!", created_at: "2025-01-03T09:30:00Z" },
+      { user: "alice", body_md: "Less salt next time.", created_at: "2025-01-02T10:00:00.000Z" },
+      { user: "bob", body_md: "Lecker!", created_at: "2025-01-03T09:30:00Z" },
     ],
     recipe: {
       title: "Red lentil dal",
@@ -72,12 +73,12 @@ describe("PUT /api/import/:source_ref", () => {
     expect(d.recipe.time).toEqual({ total_min: 45, active_min: 20 });
     expect(d.recipe.source_ref).toBe("asana:111");
     expect(d.recipe.ratings).toEqual([
-      { user: "max", stars: 5 },
-      { user: "nadine", stars: 5 },
+      { user: "alice", stars: 5 },
+      { user: "bob", stars: 5 },
     ]);
     expect(d.comments.map((c) => [c.user, c.body_md, c.created_at])).toEqual([
-      ["max", "Less salt next time.", "2025-01-02T10:00:00.000Z"],
-      ["nadine", "Lecker!", "2025-01-03T09:30:00.000Z"],
+      ["alice", "Less salt next time.", "2025-01-02T10:00:00.000Z"],
+      ["bob", "Lecker!", "2025-01-03T09:30:00.000Z"],
     ]);
   });
 
@@ -95,9 +96,9 @@ describe("PUT /api/import/:source_ref", () => {
     const { body } = await importRec(record());
     const changed = record({
       comments: [
-        { user: "max", body_md: "Less salt next time!", created_at: "2025-01-02T10:00:00Z" },
-        { user: "nadine", body_md: "Lecker!", created_at: "2025-01-03T09:30:00.000Z" },
-        { user: "nadine", body_md: "Again.", created_at: "2025-02-01T08:00:00Z" },
+        { user: "alice", body_md: "Less salt next time!", created_at: "2025-01-02T10:00:00Z" },
+        { user: "bob", body_md: "Lecker!", created_at: "2025-01-03T09:30:00.000Z" },
+        { user: "bob", body_md: "Again.", created_at: "2025-02-01T08:00:00Z" },
       ],
       recipe: { ...record().recipe, title: "Red lentil dal (tadka)", time: { total_min: 50 } },
     });
@@ -112,14 +113,14 @@ describe("PUT /api/import/:source_ref", () => {
 
   it("keeps app-only ratings, comments and edits when the record has not changed", async () => {
     const { body } = await importRec(record({ ratings: [] }));
-    await call(`/recipes/${body.id}/rating`, json("PUT", { stars: 2 }, { as: "nadine" }));
+    await call(`/recipes/${body.id}/rating`, json("PUT", { stars: 2 }, { as: "bob" }));
     await call(`/comments/c-app`, json("PUT", { recipe_id: body.id, body_md: "made it in the app" }));
     const edited = { ...record().recipe, notes_md: "Edited in the app." };
     expect((await call(`/recipes/${body.id}`, json("PUT", edited))).status).toBe(200);
     expect((await importRec(record({ ratings: [] }))).body.status).toBe("unchanged");
     const d = await detail(body.id);
     expect(d.recipe.notes_md).toBe("Edited in the app.");
-    expect(d.recipe.ratings).toEqual([{ user: "nadine", stars: 2 }]);
+    expect(d.recipe.ratings).toEqual([{ user: "bob", stars: 2 }]);
     expect(d.comments).toHaveLength(3);
   });
 

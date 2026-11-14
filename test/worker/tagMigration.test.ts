@@ -6,7 +6,7 @@ import type { Revision, RevisionListItem } from "../../shared/revisions";
 import type { Recipe, RecipeInput } from "../../shared/schema";
 import { LEGACY_TAGS, upgradeTags } from "../../shared/tags";
 import worker from "../../worker/index";
-import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_SECRET } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_LOGINS, TEST_SECRET } from "./fakes";
 
 const MIGRATIONS = resolve(import.meta.dirname, "../../migrations");
 const MIGRATION = "0006_tag_groups.sql";
@@ -19,13 +19,13 @@ const migrate = (): void => {
     sqlite.exec(readFileSync(resolve(MIGRATIONS, f), "utf8"));
 };
 
-let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string };
+let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string; LOGINS: unknown };
 let sqlite: DatabaseSync;
 
 beforeEach(() => {
   const db = fakeD1(MIGRATIONS, { before: MIGRATION });
   sqlite = db.sqlite;
-  env = { ...oauthBindings(), DB: db.d1, COVERS: fakeR2().r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET };
+  env = { ...oauthBindings(), DB: db.d1, COVERS: fakeR2().r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET, LOGINS: TEST_LOGINS };
 });
 
 const call = async <T>(path: string, init: AuthedInit = {}): Promise<{ status: number; body: T }> => {
@@ -106,11 +106,11 @@ describe("migration 0006 (tag groups)", () => {
 
   it("adds one migration revision on top of existing history", async () => {
     row("h", ["soup"]);
-    revisionFromRow("h", "editor", "max", OLD_AT);
+    revisionFromRow("h", "editor", "alice", OLD_AT);
     migrate();
     expect(brief(await revisions("h"))).toEqual([
       ["migration", null, ["tags +course:soup -soup"]],
-      ["editor", "max", []],
+      ["editor", "alice", []],
     ]);
   });
 
@@ -136,7 +136,7 @@ describe("migration 0006 (tag groups)", () => {
 describe("restoring a snapshot from before the tag groups", () => {
   it("maps its tags and drops loose ones", async () => {
     row("r", ["main", "quick_old", "vegan"]);
-    revisionFromRow("r", "editor", "max", OLD_AT);
+    revisionFromRow("r", "editor", "alice", OLD_AT);
     sqlite.prepare(`UPDATE recipes SET tags_json = '["main"]' WHERE id = 'r'`).run();
     migrate();
     const list = await revisions("r");
@@ -146,7 +146,7 @@ describe("restoring a snapshot from before the tag groups", () => {
     const res = await call<Recipe>(`/recipes/r/revisions/${old.id}/restore`, { method: "POST" });
     expect(res.status).toBe(200);
     expect(res.body.tags).toEqual(["course:main", "diet:vegan"]);
-    expect(brief(await revisions("r"))[0]).toEqual(["restore", "max", ["tags +diet:vegan"]]);
+    expect(brief(await revisions("r"))[0]).toEqual(["restore", "alice", ["tags +diet:vegan"]]);
   });
 });
 

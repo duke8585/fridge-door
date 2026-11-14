@@ -5,15 +5,15 @@
  */
 import { z } from "zod";
 import { AISLE_IDS, type AisleOrder, completeAisleOrder } from "./catalogue";
-import { METRIC_UNITS, USERS } from "./constants";
+import { METRIC_UNITS, USER_ID_PATTERN } from "./constants";
 import { tagProblem, upgradeTag } from "./tags";
 
-export { METRIC_UNITS, USERS };
+export { METRIC_UNITS };
 
 export const MetricUnitSchema = z.enum(METRIC_UNITS);
 export type MetricUnit = z.infer<typeof MetricUnitSchema>;
 
-export const UserSchema = z.enum(USERS);
+export const UserSchema = z.string().regex(new RegExp(`^${USER_ID_PATTERN}$`), "Expected a user id");
 export type User = z.infer<typeof UserSchema>;
 
 const qtySchema = z.number().positive("Must be > 0").max(100_000, "Too large");
@@ -181,7 +181,7 @@ export const ImportRecordSchema = z.object({
   cover_focus: CoverFocusSchema.nullable()
     .transform((f) => f ?? undefined)
     .optional(),
-  ratings: z.array(z.object({ user: UserSchema, stars: StarsSchema })).max(USERS.length),
+  ratings: z.array(z.object({ user: UserSchema, stars: StarsSchema })).max(20),
   comments: z.array(z.object({ user: UserSchema, body_md: z.string().trim().min(1).max(5000), created_at: z.iso.datetime() })).max(200),
   recipe: RecipeInputSchema.extend({ time: TimeSchema }),
   review: z.array(z.string().min(1).max(300)),

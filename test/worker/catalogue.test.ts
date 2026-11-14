@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AISLE_IDS, buildCatalogue, type CatalogueData, singularKey, storedName } from "../../shared/catalogue";
 import type { ImportRecord, Recipe, RecipeInput, RecipeSummary, ShoppingItem, ShoppingSyncResponse } from "../../shared/schema";
 import worker from "../../worker/index";
-import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_IMPORT_TOKEN, TEST_SECRET } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_IMPORT_TOKEN, TEST_LOGINS, TEST_SECRET } from "./fakes";
 
 let env: Record<string, unknown>;
 let sqlite: DatabaseSync;
@@ -21,6 +21,7 @@ beforeEach(() => {
     COVERS: fakeR2().r2,
     ASSETS: {} as Fetcher,
     SESSION_SECRET: TEST_SECRET,
+    LOGINS: TEST_LOGINS,
     IMPORT_TOKEN: TEST_IMPORT_TOKEN,
     ANTHROPIC_API_KEY: "sk-test",
   };

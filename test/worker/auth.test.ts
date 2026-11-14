@@ -27,7 +27,7 @@ const authEnv: AuthEnv = {
   GOOGLE_CLIENT_SECRET: "g-secret",
   GITHUB_CLIENT_ID: "gh-client",
   GITHUB_CLIENT_SECRET: "gh-secret",
-  LOGINS: { max: { google: "bob.smith@googlemail.com" }, nadine: { google: "alice.jones@gmail.com", github: "4242" } },
+  LOGINS: { alice: { google: "bob.smith@googlemail.com" }, bob: { google: "alice.jones@gmail.com", github: "4242" } },
 };
 
 const get = (path: string, headers: Record<string, string> = {}, env: AuthEnv = authEnv, origin = ORIGIN) =>
@@ -48,38 +48,38 @@ describe("allowlist", () => {
   });
   it("matches the configured google list through normalization", () => {
     const list = allowlist(authEnv.LOGINS, "google");
-    expect(list.get(normalizeEmail("bobsmith@gmail.com"))).toBe("max");
-    expect(list.get(normalizeEmail("Alice.Jones@googlemail.com"))).toBe("nadine");
+    expect(list.get(normalizeEmail("bobsmith@gmail.com"))).toBe("alice");
+    expect(list.get(normalizeEmail("Alice.Jones@googlemail.com"))).toBe("bob");
     expect(list.get(normalizeEmail("someone@gmail.com"))).toBeUndefined();
   });
   it("leaves out a person without that provider", () => {
-    expect([...allowlist(authEnv.LOGINS, "github")]).toEqual([["4242", "nadine"]]);
+    expect([...allowlist(authEnv.LOGINS, "github")]).toEqual([["4242", "bob"]]);
   });
   it("fails closed on missing config, unknown users or fields, bad keys and shared logins", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(allowlist(undefined, "google").size).toBe(0);
     expect(allowlist({}, "google").size).toBe(0);
-    expect(allowlist('{"max":{"google":"a@b.c"}}', "google").size).toBe(0);
-    expect(allowlist({ max: { google: "a@b.c" }, admin: { google: "x@y.z" } }, "google").size).toBe(0);
-    expect(allowlist({ max: { google: "a@b.c", gitlab: "1" } }, "google").size).toBe(0);
-    expect(allowlist({ max: { github: "123" }, nadine: { github: "octocat" } }, "github").size).toBe(0);
-    expect(allowlist({ max: { google: "a.b@gmail.com" }, nadine: { google: "ab@googlemail.com" } }, "google").size).toBe(0);
+    expect(allowlist('{"alice":{"google":"a@b.c"}}', "google").size).toBe(0);
+    expect(allowlist({ alice: { google: "a@b.c" }, "A.dmin": { google: "x@y.z" } }, "google").size).toBe(0);
+    expect(allowlist({ alice: { google: "a@b.c", gitlab: "1" } }, "google").size).toBe(0);
+    expect(allowlist({ alice: { github: "123" }, bob: { github: "octocat" } }, "github").size).toBe(0);
+    expect(allowlist({ alice: { google: "a.b@gmail.com" }, bob: { google: "ab@googlemail.com" } }, "google").size).toBe(0);
   });
 });
 
 describe("session cookie", () => {
   it("round-trips the user until it expires", async () => {
-    const v = await signSession(TEST_SECRET, "nadine", NOW);
-    expect(v).toMatch(/^nadine\.\d+\.[\w-]{43}$/);
-    expect(await verifySession(v, TEST_SECRET, NOW)).toBe("nadine");
-    expect(await verifySession(v, TEST_SECRET, NOW + (SESSION_MAX_AGE_S - 1) * 1000)).toBe("nadine");
+    const v = await signSession(TEST_SECRET, "bob", NOW);
+    expect(v).toMatch(/^bob\.\d+\.[\w-]{43}$/);
+    expect(await verifySession(v, TEST_SECRET, NOW)).toBe("bob");
+    expect(await verifySession(v, TEST_SECRET, NOW + (SESSION_MAX_AGE_S - 1) * 1000)).toBe("bob");
     expect(await verifySession(v, TEST_SECRET, NOW + SESSION_MAX_AGE_S * 1000)).toBeNull();
   });
   it("rejects tampering, another secret, a missing secret and junk", async () => {
-    const v = await signSession(TEST_SECRET, "nadine", NOW);
+    const v = await signSession(TEST_SECRET, "bob", NOW);
     const [, exp, mac] = v.split(".");
     expect(await verifySession(`max.${exp}.${mac}`, TEST_SECRET, NOW)).toBeNull();
-    expect(await verifySession(`nadine.${Number(exp) + 1}.${mac}`, TEST_SECRET, NOW)).toBeNull();
+    expect(await verifySession(`bob.${Number(exp) + 1}.${mac}`, TEST_SECRET, NOW)).toBeNull();
     expect(await verifySession(v, "other-secret", NOW)).toBeNull();
     expect(await verifySession(v, undefined, NOW)).toBeNull();
     expect(await verifySession(v, "", NOW)).toBeNull();
@@ -101,7 +101,7 @@ describe("state cookie", () => {
     const forged = b64url(new TextEncoder().encode(JSON.stringify({ ...state, next: "/evil", exp: 9999999999 })));
     expect(await verifyState(`${forged}.${mac}`, TEST_SECRET, NOW)).toBeNull();
     expect(await verifyState(`${payload}.${mac}`, "other-secret", NOW)).toBeNull();
-    expect(await verifyState(await signSession(TEST_SECRET, "max", NOW), TEST_SECRET, NOW)).toBeNull();
+    expect(await verifyState(await signSession(TEST_SECRET, "alice", NOW), TEST_SECRET, NOW)).toBeNull();
   });
 });
 
@@ -118,7 +118,7 @@ describe("login pages", () => {
     expect(await (await get("/login?next=//evil.example")).text()).toContain('href="/auth/google/start"');
   });
   it("sends a logged-in visitor straight to next", async () => {
-    const res = await get("/login?next=/shopping", { cookie: `${SESSION_COOKIE}=${await signSession(TEST_SECRET, "max", NOW)}` });
+    const res = await get("/login?next=/shopping", { cookie: `${SESSION_COOKIE}=${await signSession(TEST_SECRET, "alice", NOW)}` });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("/shopping");
   });
@@ -133,16 +133,16 @@ describe("login pages", () => {
     const dev = { ...authEnv, DEV_LOGIN: "true" };
     const post = (origin: string, env: AuthEnv) =>
       authRoutes(
-        new Request(`${origin}/auth/dev`, { method: "POST", body: new URLSearchParams({ user: "nadine", next: "/shopping" }) }),
+        new Request(`${origin}/auth/dev`, { method: "POST", body: new URLSearchParams({ user: "bob", next: "/shopping" }) }),
         env,
         NOW,
       ) as Promise<Response>;
-    expect(await (await get("/login", {}, dev, "http://localhost:8788")).text()).toContain("Dev: log in as nadine");
+    expect(await (await get("/login", {}, dev, "http://localhost:8788")).text()).toContain("Dev: log in as bob");
     expect(await (await get("/login", {}, dev)).text()).not.toContain("/auth/dev");
     const ok = await post("http://localhost:8788", dev);
     expect(ok.status).toBe(303);
     expect(ok.headers.get("location")).toBe("/shopping");
-    expect(await verifySession(cookieValue(ok, SESSION_COOKIE), TEST_SECRET, NOW)).toBe("nadine");
+    expect(await verifySession(cookieValue(ok, SESSION_COOKIE), TEST_SECRET, NOW)).toBe("bob");
     for (const res of [await post(ORIGIN, dev), await post("http://localhost:8788", authEnv)]) {
       expect(res.status).toBe(404);
       expect(cookieValue(res, SESSION_COOKIE)).toBeUndefined();
@@ -217,7 +217,7 @@ describe("OAuth callback", () => {
     const { res, session } = await googleLogin({ email: "bobsmith@gmail.com" });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("/shopping");
-    expect(session).toBe("max");
+    expect(session).toBe("alice");
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe("https://oauth2.googleapis.com/token");
     const body = new URLSearchParams(init!.body as URLSearchParams);
@@ -300,14 +300,14 @@ describe("OAuth callback", () => {
     githubAnswers(4242);
     const { res, session } = await githubLogin();
     expect(res.status).toBe(302);
-    expect(session).toBe("nadine");
+    expect(session).toBe("bob");
     const [userUrl, userInit] = fetchMock.mock.calls[1]!;
     expect(userUrl).toBe("https://api.github.com/user");
     expect(new Headers(userInit!.headers).get("authorization")).toBe("Bearer gho_test");
   });
   it("github: an empty allowlist lets nobody in and names the id to add", async () => {
     githubAnswers(4242);
-    const { res, session } = await githubLogin({ ...authEnv, LOGINS: { max: { google: "bob.smith@googlemail.com" } } });
+    const { res, session } = await githubLogin({ ...authEnv, LOGINS: { alice: { google: "bob.smith@googlemail.com" } } });
     expect(res.status).toBe(403);
     expect(await res.text()).toContain("id 4242");
     expect(session).toBeNull();
@@ -341,22 +341,42 @@ describe("Worker: who may do what", () => {
     expect(await (await call("/manifest.webmanifest", { as: null })).text()).toBe("asset");
     expect(await (await call("/assets/index-abc.js")).text()).toBe("asset");
   });
+  it("a third person in LOGINS is a user like the others", async () => {
+    env.LOGINS = { ...(env.LOGINS as object), chris: {} };
+    expect(await (await call("/api/me", { as: "chris" })).json()).toEqual({ user: "chris" });
+    const dal = { title: "Dal", sections: [{ ingredients: [] }], steps_md: "", notes_md: "", tags: [] };
+    expect((await call("/api/recipes", jsonInit("POST", dal, { as: "chris" }))).status).toBe(201);
+    await call("/api/recipes/dal/rating", jsonInit("PUT", { stars: 4 }, { as: "chris" }));
+    await call("/api/recipes/dal/rating", jsonInit("PUT", { stars: 2 }, { as: "alice" }));
+    const d = (await (await call("/api/recipes/dal")).json()) as RecipeDetail;
+    expect(d.recipe.ratings).toEqual(
+      expect.arrayContaining([
+        { user: "chris", stars: 4 },
+        { user: "alice", stars: 2 },
+      ]),
+    );
+  });
+  it("removing someone from LOGINS ends their session", async () => {
+    expect((await call("/api/me", { as: "bob" })).status).toBe(200);
+    env.LOGINS = { alice: {} };
+    expect((await call("/api/me", { as: "bob" })).status).toBe(401);
+  });
   it("/api/me is the session user", async () => {
-    expect(await (await call("/api/me", { as: "nadine" })).json()).toEqual({ user: "nadine" });
+    expect(await (await call("/api/me", { as: "bob" })).json()).toEqual({ user: "bob" });
   });
   it("attributes ratings, comments and revisions to the session, ignoring x-user and user cookies", async () => {
-    const spoof = { "x-user": "max", cookie: "user=max" };
+    const spoof = { "x-user": "alice", cookie: "user=alice" };
     const dal = { title: "Dal", sections: [{ ingredients: [] }], steps_md: "", notes_md: "", tags: [] };
-    expect((await call("/api/recipes", jsonInit("POST", dal, { as: "max" }))).status).toBe(201);
-    await call("/api/recipes/dal/rating", jsonInit("PUT", { stars: 3 }, { as: "nadine", headers: spoof }));
-    await call("/api/comments/c1", jsonInit("PUT", { recipe_id: "dal", body_md: "hi" }, { as: "nadine", headers: spoof }));
-    await call("/api/recipes/dal/tags", jsonInit("PATCH", { add: ["course:dessert"] }, { as: "nadine", headers: spoof }));
+    expect((await call("/api/recipes", jsonInit("POST", dal, { as: "alice" }))).status).toBe(201);
+    await call("/api/recipes/dal/rating", jsonInit("PUT", { stars: 3 }, { as: "bob", headers: spoof }));
+    await call("/api/comments/c1", jsonInit("PUT", { recipe_id: "dal", body_md: "hi" }, { as: "bob", headers: spoof }));
+    await call("/api/recipes/dal/tags", jsonInit("PATCH", { add: ["course:dessert"] }, { as: "bob", headers: spoof }));
     const d = (await (await call("/api/recipes/dal")).json()) as RecipeDetail;
-    expect(d.recipe.ratings).toEqual([{ user: "nadine", stars: 3 }]);
-    expect(d.comments.map((c) => c.user)).toEqual(["nadine"]);
+    expect(d.recipe.ratings).toEqual([{ user: "bob", stars: 3 }]);
+    expect(d.comments.map((c) => c.user)).toEqual(["bob"]);
     const revs = (await (await call("/api/recipes/dal/revisions")).json()) as RevisionListItem[];
-    expect(revs[0]?.author).toBe("nadine");
-    expect((await call("/api/comments/c1", jsonInit("PUT", { recipe_id: "dal", body_md: "mine now" }, { as: "max" }))).status).toBe(403);
+    expect(revs[0]?.author).toBe("bob");
+    expect((await call("/api/comments/c1", jsonInit("PUT", { recipe_id: "dal", body_md: "mine now" }, { as: "alice" }))).status).toBe(403);
   });
 
   describe("import bearer token", () => {
@@ -372,7 +392,7 @@ describe("Worker: who may do what", () => {
     };
     const bearer = (token: string) => ({ as: null, headers: { authorization: `Bearer ${token}` } });
 
-    it("accepts the token on the import and cover routes, acting as max", async () => {
+    it("accepts the token on the import and cover routes, acting as the first user in LOGINS", async () => {
       const res = await call("/api/import/asana:1", jsonInit("PUT", record, bearer(TEST_IMPORT_TOKEN)));
       expect(res.status).toBe(201);
       const { id } = (await res.json()) as { id: string };
@@ -384,7 +404,7 @@ describe("Worker: who may do what", () => {
       });
       expect(cover.status).toBe(200);
       const revs = (await (await call(`/api/recipes/${id}/revisions`)).json()) as RevisionListItem[];
-      expect(revs[0]).toMatchObject({ source: "import", author: "max" });
+      expect(revs[0]).toMatchObject({ source: "import", author: "alice" });
     });
     it("rejects a wrong token, a missing IMPORT_TOKEN, and the token on other routes", async () => {
       expect((await call("/api/import/asana:1", jsonInit("PUT", record, bearer("nope")))).status).toBe(401);

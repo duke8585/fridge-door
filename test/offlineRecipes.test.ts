@@ -33,15 +33,15 @@ describe("recipesToCache", () => {
 });
 
 describe("recipesToKeep", () => {
-  const row = (id: string, ...users: ("max" | "nadine")[]) => ({ id, bookmarks: users.map((user) => ({ user, at: T1 })) });
+  const row = (id: string, ...users: ("alice" | "bob")[]) => ({ id, bookmarks: users.map((user) => ({ user, at: T1 })) });
 
   it("adds my bookmarks to the shopping list recipes, once each", () => {
-    const list = [row("a", "max"), row("b", "nadine"), row("c", "max", "nadine"), row("d")];
-    expect(recipesToKeep(["c", "x"], list, "max")).toEqual(["c", "x", "a"]);
-    expect(recipesToKeep([], list, "nadine")).toEqual(["b", "c"]);
+    const list = [row("a", "alice"), row("b", "bob"), row("c", "alice", "bob"), row("d")];
+    expect(recipesToKeep(["c", "x"], list, "alice")).toEqual(["c", "x", "a"]);
+    expect(recipesToKeep([], list, "bob")).toEqual(["b", "c"]);
   });
 
   it("is just the shopping list until the library list has loaded", () => {
-    expect(recipesToKeep(["x"], undefined, "max")).toEqual(["x"]);
+    expect(recipesToKeep(["x"], undefined, "alice")).toEqual(["x"]);
   });
 });

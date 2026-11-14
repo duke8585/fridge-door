@@ -1,0 +1,5 @@
+#!/bin/sh
+npx --no-install biome format --staged --no-errors-on-unmatched || {
+  echo "pre-commit: unformatted files, run 'npm run format' and stage again" >&2
+  exit 1
+}

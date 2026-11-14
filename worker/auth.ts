@@ -37,7 +37,6 @@ export type AuthEnv = {
   GOOGLE_CLIENT_SECRET?: string;
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
-  /** wrangler.jsonc vars, a JSON object: see LoginsSchema. */
   LOGINS?: unknown;
   /** "true" only in .dev.vars. Also needs a loopback host, so it cannot work on a deployed Worker. */
   DEV_LOGIN?: string;
@@ -62,10 +61,10 @@ export function normalizeEmail(email: string): string {
   return `${local}@${domain}`;
 }
 
-const normalizeGoogleKey = (k: string): string | null => (k.includes("@") ? normalizeEmail(k) : null);
-const normalizeGithubKey = (k: string): string | null => (/^\d+$/.test(k) ? k : null);
-
-const NORMALIZE_KEY: Record<ProviderId, (k: string) => string | null> = { google: normalizeGoogleKey, github: normalizeGithubKey };
+const NORMALIZE_KEY: Record<ProviderId, (k: string) => string | null> = {
+  google: (k) => (k.includes("@") ? normalizeEmail(k) : null),
+  github: (k) => (/^\d+$/.test(k) ? k : null),
+};
 
 /** `{"max": {"google": "<email>", "github": "<numeric id>"}, "nadine": {...}}`. Either login may be left out. */
 const LoginsSchema = z.partialRecord(UserSchema, z.strictObject({ google: z.string().optional(), github: z.string().optional() }));

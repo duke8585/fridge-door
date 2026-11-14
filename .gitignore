@@ -10,6 +10,7 @@ __pycache__/
 # Account-specific config and private notes; wrangler.example.jsonc is the template.
 wrangler.jsonc
 NOTES.md
+CLAUDE.local.md
 TODO.md
 
 # Import data (personal recipes, exports, model output); only the tooling and fixtures are tracked.

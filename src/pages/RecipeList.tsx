@@ -8,7 +8,7 @@ import { AvgStars } from "../components/Stars";
 import { TagChip } from "../components/TagChip";
 import { ago } from "../lib/ago";
 import { readFilter, writeFilter } from "../lib/listParams";
-import { compareRecipes, nextSort, SORTS, type Sort } from "../lib/recipeSort";
+import { compareRecipes, DEFAULT_SORT, nextSort, SORTS, type Sort } from "../lib/recipeSort";
 import { Link, navigate } from "../lib/router";
 import { useSignal } from "../lib/signal";
 import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
@@ -23,6 +23,9 @@ const cardTag = (t: string): string => {
   return p && CARD_VALUE_ONLY.has(p.group) ? p.value : t;
 };
 
+/** The list's last query string, so every way back to the list (links, not only Back) restores it until the app reloads. */
+let remembered = "";
+
 /**
  * Search (title, ingredients, notes, tag values), tag and time filters and the sort run client-side
  * over the cached list, so they work offline. With a search, relevance comes first (title matches,
@@ -33,8 +36,8 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   const all = useSignal(summaries);
   const me = useSignal(currentUser);
   const cat = useSignal(catalogue);
-  // Search, filters and sort live in the URL (?q= ?tag= ?time= ?sort=) so Back from a recipe restores them.
-  const [initial] = useState(() => readFilter(location.search));
+  // Search, filters and sort live in the URL (?q= ?tag= ?time= ?sort=); a bare / or /bookmarks takes the remembered ones.
+  const [initial] = useState(() => readFilter(location.search || remembered));
   const [q, setQ] = useState(initial.q);
   const [selected, setSelected] = useState<ReadonlySet<string>>(initial.tags);
   // "duration" is a tab like the tag groups, holding the total-time filter
@@ -47,6 +50,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
 
   useEffect(() => {
     const search = writeFilter(location.search, { q, tags: selected, time, sort });
+    remembered = search;
     if (search !== location.search) history.replaceState(history.state, "", location.pathname + search + location.hash);
   }, [q, selected, time, sort]);
 
@@ -194,8 +198,10 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
             type="button"
             className="link-button small"
             onClick={() => {
+              setQ("");
               setSelected(new Set());
               setTime(null);
+              setSort(DEFAULT_SORT);
             }}
           >
             clear

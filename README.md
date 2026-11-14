@@ -24,7 +24,8 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   bookmark the new recipe.
 - **Tags** in groups (`course:main`, `cuisine:thai`, `list:next-up`, ...), defined once in
   `shared/tags.ts`. The list filters by group and searches titles, ingredients, tags and notes.
-  Search, filters and sort are kept in the URL, so Back from a recipe returns to the same list.
+  Search, filters and sort stay while the app is open: Back, "← Recipes" and the logo all return to
+  the same list. "clear" resets them, and reopening the app starts on Modified, unfiltered.
 - **Shopping list** shared by the household, filled from a recipe at its current scale. A scaled
   recipe's lines carry a small "×2" chip, and so does its chip at the top ("×1 ×2" when it was
   added twice at different scales). The markdown download keeps the chip as "(×2)". Items

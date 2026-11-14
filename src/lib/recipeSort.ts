@@ -1,4 +1,4 @@
-/** The library's sort orders and direction. A fresh list opens on DEFAULT_SORT; Back restores the sort from the URL. */
+/** The library's sort orders and direction. The list opens on DEFAULT_SORT when the app loads, then keeps the chosen sort until it reloads. */
 import type { RecipeSummary } from "../../shared/schema";
 
 /** `desc` is the first click's direction: newest, best rated, A first. */

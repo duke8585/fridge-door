@@ -222,6 +222,13 @@ describe("shopping sync", () => {
     expect(res.body.catalogue_version).toMatch(/^\d+$/);
   });
 
+  it("keeps the scale a recipe line was added with, and none on hand-typed rows", async () => {
+    const res = await sync([row("a", "red lentils", { qty: 400, unit: "g", recipe_id: "dal", recipe_title: "Dal", scale: 2 }), row("b", "milk")]);
+    const byId = new Map(res.body.items.map((i) => [i.id, i]));
+    expect(byId.get("a")!.scale).toBe(2);
+    expect(byId.get("b")!.scale).toBeUndefined();
+  });
+
   it("drops an aisle id it does not know instead of rejecting the batch", async () => {
     const res = await sync([row("a", "apples", { base: "apple", aisle: "garden" as never })]);
     expect(res.status).toBe(200);

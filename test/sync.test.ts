@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RecipeDetail, RecipeSummary, ShoppingItem } from "../shared/schema";
-import { groupShopping, ingredientsToShopping, mergeRemote, nextTimestamp } from "../shared/shopping";
+import { groupShopping, ingredientsToShopping, mergeRemote, nextTimestamp, recipeScaleLabel, scaleLabel } from "../shared/shopping";
 import { applyTagDelta } from "../shared/tags";
 import { applyOp, applyOpToSummary, type OutboxOp } from "../src/store/ops";
 
@@ -69,6 +69,20 @@ describe("groupShopping", () => {
       ["apple", [undefined], true],
       ["butter", ["Cake", "Pancakes"], false],
     ]);
+  });
+  it("tags each row with the recipe's scale, and leaves it out at 1", () => {
+    const at = "2026-11-08T10:00:00.000Z";
+    const ing = [{ item: "flour", qty: 400, unit: "g" as const }];
+    expect(ingredientsToShopping(ing, { id: "r", title: "R", scale: 2 }, () => "id", at)[0]!.scale).toBe(2);
+    expect(ingredientsToShopping(ing, { id: "r", title: "R", scale: 1 }, () => "id", at)[0]).not.toHaveProperty("scale");
+    expect(ingredientsToShopping(ing, { id: "r", title: "R" }, () => "id", at)[0]).not.toHaveProperty("scale");
+  });
+  it("labels scales as chips: none when unscaled, every scale when a recipe was added at several", () => {
+    expect(scaleLabel(undefined)).toBeNull();
+    expect(scaleLabel(1)).toBeNull();
+    expect(scaleLabel(1.5)).toBe("×1½");
+    expect(recipeScaleLabel(new Set([1]))).toBeNull();
+    expect(recipeScaleLabel(new Set([2, 1]))).toBe("×1 ×2");
   });
   it("adds unscalable ingredients without qty", () => {
     const rows = ingredientsToShopping([{ item: "salt", note: "to taste" }], { id: "r", title: "R" }, () => "id", "2026-11-08T10:00:00.000Z");

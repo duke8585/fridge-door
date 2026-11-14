@@ -1,7 +1,7 @@
 /** The shopping list as a markdown file: the recipes on it, then one checkbox per item, by aisle. */
 import { aisleLabel } from "../../shared/catalogue";
 import { formatQty } from "../../shared/scale";
-import type { AisleSection } from "../../shared/shopping";
+import { type AisleSection, scaleLabel } from "../../shared/shopping";
 
 /** `origin` is the app's address, for links back to each recipe. `date` goes into the heading. */
 export function shoppingToMarkdown(sections: readonly AisleSection[], origin: string, date: string): string {
@@ -16,7 +16,8 @@ export function shoppingToMarkdown(sections: readonly AisleSection[], origin: st
     for (const g of s.groups) {
       for (const l of g.lines) {
         const text = [formatQty(l.qty, l.qtyMax, l.unit), l.item.trim()].filter(Boolean).join(" ");
-        out.push(`- [${l.checked ? "x" : " "}] ${text}${l.recipe_id ? ` - ${link(l.recipe_id)}` : ""}`);
+        const scale = scaleLabel(l.scale);
+        out.push(`- [${l.checked ? "x" : " "}] ${text}${l.recipe_id ? ` - ${link(l.recipe_id)}` : ""}${scale ? ` (${scale})` : ""}`);
       }
     }
     out.push("");

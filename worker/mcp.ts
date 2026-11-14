@@ -406,7 +406,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       const recipe = await repo.getRecipe(db, id);
       if (!recipe) return notFound(id);
       const ingredients = scaleSections(recipe.sections, scale).flatMap((s) => s.ingredients);
-      const rows = ingredientsToShopping(ingredients, recipe, () => `s-${crypto.randomUUID()}`, now());
+      const rows = ingredientsToShopping(ingredients, { ...recipe, scale }, () => `s-${crypto.randomUUID()}`, now());
       await repo.applyShopping(db, await placeShopping(env, rows));
       return ok({ id, scale, added: rows.length });
     },

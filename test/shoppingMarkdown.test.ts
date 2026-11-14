@@ -10,7 +10,7 @@ describe("shoppingToMarkdown", () => {
       groupShopping([
         item("a", "red lentils", { qty: 400, unit: "g", recipe_id: "dal", recipe_title: "Dal", base: "red lentil", aisle: "grains" }),
         item("b", "milk", { checked: true }),
-        item("c", "red lentils", { qty: 200, unit: "g", recipe_id: "soup", recipe_title: "Soup", base: "red lentil", aisle: "grains" }),
+        item("c", "red lentils", { qty: 200, unit: "g", recipe_id: "soup", recipe_title: "Soup", base: "red lentil", aisle: "grains", scale: 2 }),
         item("d", "apples", { base: "apple", aisle: "produce" }),
       ]),
       undefined,
@@ -19,7 +19,7 @@ describe("shoppingToMarkdown", () => {
     expect(md).toContain("# Shopping list 2026-11-09");
     expect(md).toContain("## Recipes\n\n- [Dal](https://fd.example/recipes/dal)\n- [Soup](https://fd.example/recipes/soup)\n");
     expect(md).toContain("- [ ] 400 g red lentils - https://fd.example/recipes/dal");
-    expect(md).toContain("- [ ] 200 g red lentils - https://fd.example/recipes/soup");
+    expect(md).toContain("- [ ] 200 g red lentils - https://fd.example/recipes/soup (×2)");
     expect(md).toContain("- [x] milk\n");
     expect(md.indexOf("## Fruit and vegetables\n\n- [ ] apples")).toBeLessThan(md.indexOf("## Pasta, rice and grains"));
     expect(md.indexOf("## Pasta, rice and grains")).toBeLessThan(md.indexOf("## Other\n\n- [x] milk"));

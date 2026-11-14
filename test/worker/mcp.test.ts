@@ -5,7 +5,7 @@ import type { RecipeInput, User } from "../../shared/schema";
 import worker, { mcpApi } from "../../worker/index";
 import * as repo from "../../worker/repo";
 import { b64url } from "../../worker/session";
-import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_ORIGIN, TEST_LOGINS, TEST_SECRET } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_LOGINS, TEST_ORIGIN, TEST_SECRET } from "./fakes";
 
 let env: Record<string, unknown>;
 let sqlite: DatabaseSync;
@@ -485,9 +485,9 @@ describe("MCP tools", () => {
 
     const shop = await tool(token, "add_to_shopping_list", { id: data.id, scale: 1.5 });
     expect(shop.data).toEqual({ id: data.id, scale: 1.5, added: 2 });
-    expect(sqlite.prepare("SELECT item, qty, unit, recipe_id, recipe_title FROM shopping_items ORDER BY item").all()).toEqual([
-      { item: "red lentils", qty: 300, unit: "g", recipe_id: data.id, recipe_title: "Red lentil dal" },
-      { item: "salt", qty: null, unit: null, recipe_id: data.id, recipe_title: "Red lentil dal" },
+    expect(sqlite.prepare("SELECT item, qty, unit, recipe_id, recipe_title, scale FROM shopping_items ORDER BY item").all()).toEqual([
+      { item: "red lentils", qty: 300, unit: "g", recipe_id: data.id, recipe_title: "Red lentil dal", scale: 1.5 },
+      { item: "salt", qty: null, unit: null, recipe_id: data.id, recipe_title: "Red lentil dal", scale: 1.5 },
     ]);
   });
 });

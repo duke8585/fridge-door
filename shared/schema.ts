@@ -202,6 +202,8 @@ export const ShoppingItemSchema = z.object({
   unit: MetricUnitSchema.optional(),
   recipe_id: z.string().max(64).optional(),
   recipe_title: z.string().max(140).optional(),
+  /** The factor the recipe was scaled by when this line was added. Left out at 1 and on hand-typed items. */
+  scale: z.number().positive().max(100).optional(),
   /** Base and aisle from the catalogue when the item was added. Older clients send neither; the server fills them in. */
   base: z.string().trim().min(1).max(60).optional(),
   aisle: z.enum(AISLE_IDS).optional().catch(undefined),

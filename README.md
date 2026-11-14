@@ -25,7 +25,9 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
 - **Tags** in groups (`course:main`, `cuisine:thai`, `list:next-up`, ...), defined once in
   `shared/tags.ts`. The list filters by group and searches titles, ingredients, tags and notes.
   Search, filters and sort are kept in the URL, so Back from a recipe returns to the same list.
-- **Shopping list** shared by the household, filled from a recipe at its current scale. Items
+- **Shopping list** shared by the household, filled from a recipe at its current scale. A scaled
+  recipe's lines carry a small "×2" chip, and so does its chip at the top ("×1 ×2" when it was
+  added twice at different scales). The markdown download keeps the chip as "(×2)". Items
   are grouped by ingredient base ("red apple" and "apples" are one "apple") under aisle headings,
   in one household aisle order that anyone can reorder. Staples such as water and ice sit
   last under "Likely at home". "change category" on an item is permanent and shared: it moves the

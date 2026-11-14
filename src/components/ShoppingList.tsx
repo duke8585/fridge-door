@@ -2,7 +2,7 @@ import { type FormEvent, useMemo, useState } from "react";
 import { AISLES, aisleLabel, completeAisleOrder, isAisle, resolveLocal, singularKey } from "../../shared/catalogue";
 import { parseIngredientLine } from "../../shared/parse";
 import { formatQty } from "../../shared/scale";
-import { byAisle, groupShopping, nextTimestamp } from "../../shared/shopping";
+import { byAisle, groupShopping, nextTimestamp, recipeScaleLabel, scaleLabel } from "../../shared/shopping";
 import { useArmed } from "../lib/armed";
 import { newId } from "../lib/id";
 import { Link } from "../lib/router";
@@ -42,16 +42,17 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
   };
   const anyChecked = groups.some((g) => g.lines.some((l) => l.checked));
   const live = useMemo(() => [...items.values()].filter((i) => !i.deleted), [items]);
-  // the recipes on the list, in the order they were added, with how many items each brought
+  // the recipes on the list, in the order they were added, with how many items each brought and at which scales
   const recipes = useMemo(() => {
-    const m = new Map<string, { title: string; n: number; first: string }>();
+    const m = new Map<string, { title: string; n: number; first: string; scales: Set<number> }>();
     for (const i of live) {
       if (!i.recipe_id) continue;
       const r = m.get(i.recipe_id);
       if (r) {
         r.n++;
+        r.scales.add(i.scale ?? 1);
         if (i.updated_at < r.first) r.first = i.updated_at;
-      } else m.set(i.recipe_id, { title: i.recipe_title ?? "Recipe", n: 1, first: i.updated_at });
+      } else m.set(i.recipe_id, { title: i.recipe_title ?? "Recipe", n: 1, first: i.updated_at, scales: new Set([i.scale ?? 1]) });
     }
     return [...m].sort((a, b) => (a[1].first < b[1].first ? -1 : 1));
   }, [live]);
@@ -96,6 +97,7 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
               <Link href={`/recipes/${id}`} onClick={onNavigate}>
                 {r.title}
               </Link>
+              {recipeScaleLabel(r.scales) && <span className="scale-chip">{recipeScaleLabel(r.scales)}</span>}
               <span className="muted small">{r.n}</span>
               <button
                 type="button"
@@ -187,6 +189,7 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                                       ) : (
                                         l.recipe_title
                                       )}
+                                      {scaleLabel(l.scale) && <span className="scale-chip">{scaleLabel(l.scale)}</span>}
                                     </>
                                   )}
                                 </span>

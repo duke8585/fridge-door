@@ -50,6 +50,7 @@ type ShoppingRow = {
   unit: string | null;
   recipe_id: string | null;
   recipe_title: string | null;
+  scale: number | null;
   base: string | null;
   aisle: string | null;
   checked: number;
@@ -101,6 +102,7 @@ function rowToShopping(r: ShoppingRow): ShoppingItem {
     unit: nn(r.unit) as MetricUnit | undefined,
     recipe_id: nn(r.recipe_id),
     recipe_title: nn(r.recipe_title),
+    scale: nn(r.scale),
     base: nn(r.base),
     aisle: nn(r.aisle) as Aisle | undefined,
     checked: r.checked === 1,
@@ -496,10 +498,10 @@ export async function deleteComment(db: D1Database, id: string): Promise<void> {
 export async function applyShopping(db: D1Database, items: readonly ShoppingItem[]): Promise<void> {
   if (items.length === 0) return;
   const stmt = db.prepare(
-    `INSERT INTO shopping_items (id, item, qty, qty_max, unit, recipe_id, recipe_title, base, aisle, checked, deleted, updated_at, rev)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(rev), 0) + 1 FROM shopping_items))
+    `INSERT INTO shopping_items (id, item, qty, qty_max, unit, recipe_id, recipe_title, scale, base, aisle, checked, deleted, updated_at, rev)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(rev), 0) + 1 FROM shopping_items))
      ON CONFLICT(id) DO UPDATE SET item=excluded.item, qty=excluded.qty, qty_max=excluded.qty_max, unit=excluded.unit,
-       recipe_id=excluded.recipe_id, recipe_title=excluded.recipe_title, base=excluded.base, aisle=excluded.aisle, checked=excluded.checked,
+       recipe_id=excluded.recipe_id, recipe_title=excluded.recipe_title, scale=excluded.scale, base=excluded.base, aisle=excluded.aisle, checked=excluded.checked,
        deleted=excluded.deleted, updated_at=excluded.updated_at, rev=excluded.rev
      WHERE excluded.updated_at > shopping_items.updated_at`,
   );
@@ -513,6 +515,7 @@ export async function applyShopping(db: D1Database, items: readonly ShoppingItem
         i.unit ?? null,
         i.recipe_id ?? null,
         i.recipe_title ?? null,
+        i.scale ?? null,
         i.base ?? null,
         i.aisle ?? null,
         i.checked ? 1 : 0,

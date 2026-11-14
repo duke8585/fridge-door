@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { coverUrl, focusPosition } from "../../shared/cover";
 import { factorForYield, formatNumber, formatQty, scaleIngredient, spoonInMl } from "../../shared/scale";
 import type { Comment, Ingredient, Recipe } from "../../shared/schema";
-import { ingredientsToShopping, nextTimestamp } from "../../shared/shopping";
+import { ingredientsToShopping, nextTimestamp, scaleLabel } from "../../shared/shopping";
 import { formatTime } from "../../shared/time";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { Markdown, splitSteps } from "../components/Markdown";
@@ -157,13 +157,14 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
     const now = nextTimestamp();
     const rows = ingredientsToShopping(
       scaled.flatMap((s) => s.ingredients),
-      recipe,
+      { id: recipe.id, title: recipe.title, scale: f },
       () => newId(),
       now,
       catalogue.get(),
     );
     await addShoppingItems(rows);
-    setToast(`Added ${rows.length} items${f !== 1 ? ` (x${formatNumber(f)})` : ""}`);
+    const scale = scaleLabel(f);
+    setToast(`Added ${rows.length} items${scale ? ` (${scale})` : ""}`);
     setTimeout(() => setToast(undefined), 2500);
   };
 

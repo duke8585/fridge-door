@@ -369,6 +369,20 @@ button:disabled {
   align-items: center;
   gap: 0.2rem;
 }
+/* the factor a recipe was scaled by when added to the shopping list, e.g. "×2" */
+.scale-chip {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: 0.05em;
+}
 .chip.on {
   background: var(--accent-soft);
   border-color: var(--accent);

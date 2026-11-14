@@ -1,4 +1,5 @@
 import { type Aisle, type Catalogue, completeAisleOrder, EMPTY_CATALOGUE, resolveLocal } from "./catalogue";
+import { formatNumber } from "./scale";
 import type { Ingredient, ShoppingItem } from "./schema";
 
 /**
@@ -27,6 +28,7 @@ function sameItem(a: ShoppingItem, b: ShoppingItem): boolean {
     a.qty === b.qty &&
     a.qtyMax === b.qtyMax &&
     a.unit === b.unit &&
+    a.scale === b.scale &&
     a.base === b.base &&
     a.aisle === b.aisle
   );
@@ -96,13 +98,28 @@ export function byAisle(groups: readonly ShoppingGroup[], order: readonly string
     .filter((s) => s.groups.length > 0);
 }
 
+/** "×2" for a line added from a scaled recipe; null at 1 (unscaled, or typed in by hand). */
+export function scaleLabel(scale: number | undefined): string | null {
+  return scale === undefined || scale === 1 ? null : `×${formatNumber(scale)}`;
+}
+
+/** "×2" for a recipe on the list, "×1 ×2" when it was added twice at different scales; null when every add was unscaled. */
+export function recipeScaleLabel(scales: ReadonlySet<number>): string | null {
+  if ([...scales].every((s) => s === 1)) return null;
+  return [...scales]
+    .sort((a, b) => a - b)
+    .map((s) => `×${formatNumber(s)}`)
+    .join(" ");
+}
+
 /**
- * Build shopping rows from (already scaled) ingredients. Unscalable items come along without qty.
- * Each row carries the ingredient's base and, when the catalogue knows the base, its aisle.
+ * Build shopping rows from ingredients already scaled by `recipe.scale` (1 when left out).
+ * Unscalable items come along without qty. Each row carries the ingredient's base and, when the
+ * catalogue knows the base, its aisle.
  */
 export function ingredientsToShopping(
   ingredients: readonly Ingredient[],
-  recipe: { id: string; title: string },
+  recipe: { id: string; title: string; scale?: number },
   makeId: () => string,
   now: string,
   cat: Catalogue = EMPTY_CATALOGUE,
@@ -117,6 +134,7 @@ export function ingredientsToShopping(
     unit: ing.unit,
     recipe_id: recipe.id,
     recipe_title: recipe.title,
+    ...(recipe.scale !== undefined && recipe.scale !== 1 && { scale: recipe.scale }),
     checked: false,
     updated_at: now,
   }));

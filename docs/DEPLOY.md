@@ -287,6 +287,11 @@ storage and point the Worker at it. This is how the old `recipes-spa` database a
 The browser keeps its own local database (IndexedDB). `src/store/idb.ts` copies one under the old
 name into the new name once and then deletes it, so offline edits that have not synced survive.
 
+## Shopping scale
+
+Migration 0015 adds `shopping_items.scale`, the factor a recipe line was added with. It only adds a
+column. Rows from before it, and rows from clients that do not send it yet, show no chip.
+
 ## Ingredient bases
 
 Migrations 0008 and 0009 add the ingredient catalogue with a starter set and its change generation.

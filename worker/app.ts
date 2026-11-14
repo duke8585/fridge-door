@@ -25,7 +25,7 @@ import {
 } from "../shared/schema";
 import { searchRecipes } from "../shared/search";
 import { applyTagDelta } from "../shared/tags";
-import { type AuthEnv, authRoutes, PUBLIC_PATHS, requestUser, unauthenticated } from "./auth";
+import { type AuthEnv, authRoutes, PUBLIC_PATHS, requestUser, unauthenticated, users } from "./auth";
 import { backfillBases, placeShopping, resolveRecipe } from "./catalogue";
 import { storeCover } from "./covers";
 import * as repo from "./repo";
@@ -244,6 +244,11 @@ app.put("/import/:source_ref", async (c) => {
   const rec = body.data;
   if (rec.source_ref !== ref) {
     return c.json<ValidationErrorBody>({ error: "validation", fields: { source_ref: "Does not match the URL" } }, 400);
+  }
+  const known = users(c.env);
+  const strangers = [...rec.ratings, ...rec.comments].map((x) => x.user).filter((u) => !known.includes(u));
+  if (strangers.length > 0) {
+    return c.json<ValidationErrorBody>({ error: "validation", fields: { users: `Not in LOGINS: ${[...new Set(strangers)].join(", ")}` } }, 400);
   }
   const hash = await contentHash(utf8(JSON.stringify(rec)));
   const existing = await repo.findBySourceRef(c.env.DB, ref);

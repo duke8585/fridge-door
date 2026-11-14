@@ -92,9 +92,12 @@ letter, up to 32 characters.
   `gmail.com` and dots in gmail local parts ignored.
 - `github` is the numeric user id as a string, not the login (logins can be renamed). A rejected
   GitHub login shows "GitHub user <login> (id <n>) is not allowed", which is a quick way to find the id.
-- Either login may be left out. An invalid user id or an unknown field turns both providers off.
+- Either login may be left out. An invalid user id or an unknown field invalidates all of `LOGINS`:
+  nobody can log in, existing sessions and MCP connections stop working, and so does the import token.
   A malformed key or the same login under two people turns that provider off.
-- The import token (`IMPORT_TOKEN`) acts as the first user in `LOGINS`.
+- The import token (`IMPORT_TOKEN`) acts as the first user in `LOGINS`, so reordering the entries
+  changes who imports and backfills are attributed to. Imported ratings and comments must name users
+  in `LOGINS`.
 - These are plain vars, not secrets. Removing someone from `LOGINS` ends their sessions and their
   MCP connections on the next request.
 

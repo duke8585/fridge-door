@@ -138,6 +138,10 @@ describe("PUT /api/import/:source_ref", () => {
     const noTime = { ...record(), recipe: { ...record().recipe, time: undefined } };
     expect((await importRec(noTime)).status).toBe(400);
   });
+  it("rejects ratings and comments by someone who is not in LOGINS", async () => {
+    const stranger = { ...record(), ratings: [{ user: "eve", stars: 1 }] };
+    expect((await importRec(stranger)).body.fields).toEqual({ users: "Not in LOGINS: eve" });
+  });
 });
 
 describe("time validation", () => {

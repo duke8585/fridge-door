@@ -393,6 +393,7 @@ describe("Worker: who may do what", () => {
     const bearer = (token: string) => ({ as: null, headers: { authorization: `Bearer ${token}` } });
 
     it("accepts the token on the import and cover routes, acting as the first user in LOGINS", async () => {
+      env.LOGINS = { bob: {}, alice: {} };
       const res = await call("/api/import/asana:1", jsonInit("PUT", record, bearer(TEST_IMPORT_TOKEN)));
       expect(res.status).toBe(201);
       const { id } = (await res.json()) as { id: string };
@@ -404,7 +405,7 @@ describe("Worker: who may do what", () => {
       });
       expect(cover.status).toBe(200);
       const revs = (await (await call(`/api/recipes/${id}/revisions`)).json()) as RevisionListItem[];
-      expect(revs[0]).toMatchObject({ source: "import", author: "alice" });
+      expect(revs[0]).toMatchObject({ source: "import", author: "bob" });
     });
     it("rejects a wrong token, a missing IMPORT_TOKEN, and the token on other routes", async () => {
       expect((await call("/api/import/asana:1", jsonInit("PUT", record, bearer("nope")))).status).toBe(401);

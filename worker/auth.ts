@@ -358,13 +358,13 @@ export async function authRoutes(req: Request, env: AuthEnv, nowMs: number = Dat
   return new Response(null, { status: 302, headers });
 }
 
-/** The acting user: the session, or on the import routes a matching IMPORT_TOKEN bearer. Never anything the client claims. */
 /** The session's user while they are still in LOGINS, so removing someone ends their sessions. */
 export async function sessionUser(req: Request, env: AuthEnv, nowMs: number = Date.now()): Promise<User | null> {
   const user = await verifySession(readCookie(req, SESSION_COOKIE), env.SESSION_SECRET, nowMs);
   return user && users(env).includes(user) ? user : null;
 }
 
+/** The acting user: the session, or on the import routes a matching IMPORT_TOKEN bearer. Never anything the client claims. */
 export async function requestUser(req: Request, env: AuthEnv, nowMs: number = Date.now()): Promise<User | null> {
   const session = await sessionUser(req, env, nowMs);
   if (session) return session;

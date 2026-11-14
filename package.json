@@ -11,6 +11,9 @@
     "deploy": "npm run build && wrangler deploy",
     "deploy:stg": "CLOUDFLARE_ENV=stg npm run build && wrangler deploy",
     "check": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.worker.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.worker-test.json",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "fix": "biome check --write .",
     "test": "vitest run",
     "db:migrate": "wrangler d1 migrations apply DB --local -c wrangler.jsonc",
     "db:seed": "wrangler d1 execute DB --local -c wrangler.jsonc --file seed/seed.sql",
@@ -38,6 +41,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.3",
     "@cloudflare/vite-plugin": "1.67.0",
     "@cloudflare/workers-types": "5.20261108.1",
     "@types/node": "22.20.5",

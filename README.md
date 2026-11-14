@@ -24,6 +24,7 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   bookmark the new recipe.
 - **Tags** in groups (`course:main`, `cuisine:thai`, `list:next-up`, ...), defined once in
   `shared/tags.ts`. The list filters by group and searches titles, ingredients, tags and notes.
+  Search, filters and sort are kept in the URL, so Back from a recipe returns to the same list.
 - **Shopping list** shared by the household, filled from a recipe at its current scale. Items
   are grouped by ingredient base ("red apple" and "apples" are one "apple") under aisle headings,
   in one household aisle order that anyone can reorder. Staples such as water and ice sit

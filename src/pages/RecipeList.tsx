@@ -7,7 +7,8 @@ import { BookmarkButton, BookmarkIcon } from "../components/BookmarkButton";
 import { AvgStars } from "../components/Stars";
 import { TagChip } from "../components/TagChip";
 import { ago } from "../lib/ago";
-import { compareRecipes, DEFAULT_SORT, nextSort, SORTS, type Sort } from "../lib/recipeSort";
+import { readFilter, writeFilter } from "../lib/listParams";
+import { compareRecipes, nextSort, SORTS, type Sort } from "../lib/recipeSort";
 import { Link, navigate } from "../lib/router";
 import { useSignal } from "../lib/signal";
 import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
@@ -32,15 +33,22 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   const all = useSignal(summaries);
   const me = useSignal(currentUser);
   const cat = useSignal(catalogue);
-  const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // Search, filters and sort live in the URL (?q= ?tag= ?time= ?sort=) so Back from a recipe restores them.
+  const [initial] = useState(() => readFilter(location.search));
+  const [q, setQ] = useState(initial.q);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(initial.tags);
   // "duration" is a tab like the tag groups, holding the total-time filter
   const [openGroup, setOpenGroup] = useState<TagGroup | "duration" | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
-  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
+  const [sort, setSort] = useState<Sort>(initial.sort);
   const list = useMemo(() => (bookmarks ? all?.filter((r) => r.bookmarks.some((b) => b.user === me)) : all), [all, bookmarks, me]);
-  const [time, setTime] = useState<string | null>(null);
+  const [time, setTime] = useState<string | null>(initial.time);
   const [cached, setCached] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const search = writeFilter(location.search, { q, tags: selected, time, sort });
+    if (search !== location.search) history.replaceState(history.state, "", location.pathname + search + location.hash);
+  }, [q, selected, time, sort]);
 
   useEffect(() => {
     void loadSummaries();
@@ -196,10 +204,10 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
       )}
       <div className="list-bar">
         <div className="segmented" role="group" aria-label="Show">
-          <button type="button" aria-pressed={!bookmarks} onClick={() => bookmarks && navigate("/", { replace: true })}>
+          <button type="button" aria-pressed={!bookmarks} onClick={() => bookmarks && navigate(`/${location.search}`, { replace: true })}>
             All
           </button>
-          <button type="button" aria-pressed={bookmarks} onClick={() => !bookmarks && navigate("/bookmarks", { replace: true })}>
+          <button type="button" aria-pressed={bookmarks} onClick={() => !bookmarks && navigate(`/bookmarks${location.search}`, { replace: true })}>
             <BookmarkIcon filled={bookmarks} />
             Saved
           </button>

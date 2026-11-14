@@ -26,9 +26,7 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": true
   },
-  // Who may log in as whom (public, not secrets). The app has exactly two users, "max" and "nadine"
-  // (USERS in shared/constants.ts). Per person: Google email (normalized, see worker/auth.ts) and
-  // GitHub numeric user id, either optional. Invalid config lets nobody in with that provider.
+  // LOGINS: who may log in as max or nadine (public, not secrets). See docs/DEPLOY.md, "3. Logins".
   "vars": {
     "LOGINS": {
       "max": { "google": "alice@example.com", "github": "1234567" },

@@ -18,13 +18,13 @@ Node.
 ### Before you fork
 
 - Users: the app has exactly two fixed users, `max` and `nadine` (`USERS` in
-  `shared/constants.ts`). Rename them there and in the allowlists if you like; the ids are stored on
+  `shared/constants.ts`). Rename them there and in `LOGINS` if you like; the ids are stored on
   ratings, comments and revisions, so do it before you have data.
 - The header links to this repository (`src/components/Header.tsx`); point it at your fork or drop it.
 - Migrations 0006 and 0007 were data migrations for the original library (tag renames, diet tags
   by recipe id). On a fresh database they find nothing to change, so keep them in the sequence.
 
-`wrangler.jsonc` holds your account's ids and allowlists and is gitignored. You create it from
+`wrangler.jsonc` holds your account's ids and `LOGINS` and is gitignored. You create it from
 `wrangler.example.jsonc` in step 2. The top level of that file is production, `env.stg` is
 staging. Wrangler does not inherit vars or bindings into an env, so `env.stg` repeats all of them.
 
@@ -92,8 +92,8 @@ may log in as whom, per environment, with one entry per person:
   `gmail.com` and dots in gmail local parts ignored.
 - `github` is the numeric user id as a string, not the login (logins can be renamed). A rejected
   GitHub login shows "GitHub user <login> (id <n>) is not allowed", which is a quick way to find the id.
-- Either login may be left out. The keys must be `max` or `nadine`. An unknown user or field, a
-  malformed key, or the same login under both people turns that provider off: nobody gets in with it.
+- Either login may be left out. The keys must be `max` or `nadine`. An unknown user or field turns
+  both providers off. A malformed key or the same login under both people turns that provider off.
 - These are plain vars, not secrets. Removing someone does not end a session they already have;
   rotate `SESSION_SECRET` for that.
 

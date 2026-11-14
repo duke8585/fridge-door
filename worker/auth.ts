@@ -66,10 +66,8 @@ const NORMALIZE_KEY: Record<ProviderId, (k: string) => string | null> = {
   github: (k) => (/^\d+$/.test(k) ? k : null),
 };
 
-/** `{"max": {"google": "<email>", "github": "<numeric id>"}, "nadine": {...}}`. Either login may be left out. */
 const LoginsSchema = z.partialRecord(UserSchema, z.strictObject({ google: z.string().optional(), github: z.string().optional() }));
 
-/** Who may log in as whom with one provider. Anything malformed gives an empty list, which lets nobody in. */
 export function allowlist(logins: unknown, provider: ProviderId): ReadonlyMap<string, User> {
   const parsed = LoginsSchema.safeParse(logins);
   const entries = parsed.success

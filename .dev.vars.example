@@ -1,7 +1,7 @@
 # Local dev only (vite dev / preview read .dev.vars; `wrangler deploy` never uploads it).
 # predev copies this file to .dev.vars when there is none.
-# OAuth cannot redirect back to localhost, so DEV_LOGIN adds "log in as max/nadine" buttons to
-# /login. It also requires a localhost/127.0.0.1 host, so it cannot work on a deployed Worker.
+# DEV_LOGIN adds "log in as max/nadine" buttons to /login, so local dev needs no OAuth app.
+# It also requires a localhost/127.0.0.1 host, so it cannot work on a deployed Worker.
 SESSION_SECRET=local-dev-only-not-a-secret
 DEV_LOGIN=true
 # Optional: lets `npm run load-import` against localhost use RECIPES_IMPORT_TOKEN=local-import-token

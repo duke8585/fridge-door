@@ -21,7 +21,7 @@ from typing import Any, Literal
 
 from dataclasses import dataclass, field
 
-User = Literal["max", "partner"]
+User = Literal["max", "nadine"]
 
 SECTION_RATING: dict[str, int] = {"GOOD": 5, "OKAYISH": 3, "MEEEH": 2, "COMPOST": 1}
 # Tags are group:value (shared/tags.ts). The board decides list:, from:, status: and todo:.
@@ -31,7 +31,7 @@ STUB_TAG = "status:stub"
 NEEDS_METHOD_TAG = "todo:method"
 PART_FILE = re.compile(r"^(\d+)(?:-([1-9]\d{0,2}))?$")
 IMAGE_EXT = {"jpeg", "jpg", "png", "webp", "heic"}
-PARTNER_PREFIX = re.compile(r"^\s*N n - (\d{2})/(\d{2})/(\d{4}) (\d{2}):(\d{2}):(\d{2})\s*\n?")
+NADINE_PREFIX = re.compile(r"^\s*N n - (\d{2})/(\d{2})/(\d{4}) (\d{2}):(\d{2}):(\d{2})\s*\n?")
 URL = re.compile(r"https?://[^\s)>\]]+")
 LINK_ONLY_COMMENT = re.compile(r"^\s*(besserer link|attachment link:?)\s*$", re.I)
 
@@ -77,10 +77,10 @@ def images(task: dict[str, Any]) -> list[str]:
 def split_comment(text: str, created_at: str) -> tuple[Comment | None, str | None]:
     """Returns (comment, better_source_url). A link-only comment yields no comment, only a url."""
     user: User = "max"
-    m = PARTNER_PREFIX.match(text)
+    m = NADINE_PREFIX.match(text)
     if m:
         mo, d, y, hh, mi, ss = m.groups()
-        user = "partner"
+        user = "nadine"
         created_at = datetime(int(y), int(mo), int(d), int(hh), int(mi), int(ss)).isoformat() + "Z"
         text = text[m.end():]
     urls = URL.findall(text)
@@ -114,7 +114,7 @@ def board_fields(task: dict[str, Any]) -> BoardFields:
     bf = BoardFields(
         source_ref=f"asana:{task['gid']}",
         section=sec,
-        ratings=[{"user": u, "stars": stars} for u in ("max", "partner")] if stars else [],
+        ratings=[{"user": u, "stars": stars} for u in ("max", "nadine")] if stars else [],
         board_tags=tags,
         cover=imgs[0].rsplit(".", 1)[0] + ".jpg" if imgs else None,  # covers/ holds JPEG copies, see make_covers.sh
     )

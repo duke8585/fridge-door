@@ -1,19 +1,22 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import worker from "../../worker/index";
-import type { Recipe, RecipeInput } from "../../shared/schema";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { Revision, RevisionListItem } from "../../shared/revisions";
+import type { Recipe, RecipeInput } from "../../shared/schema";
 import { LEGACY_TAGS, upgradeTags } from "../../shared/tags";
-import { TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedInit } from "./fakes";
+import worker from "../../worker/index";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_SECRET } from "./fakes";
 
 const MIGRATIONS = resolve(import.meta.dirname, "../../migrations");
 const MIGRATION = "0006_tag_groups.sql";
 const sql = readFileSync(resolve(MIGRATIONS, MIGRATION), "utf8");
 /** 0006 and every later migration, so the app the tests call finds its tables. */
 const migrate = (): void => {
-  for (const f of readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql") && f >= MIGRATION).sort()) sqlite.exec(readFileSync(resolve(MIGRATIONS, f), "utf8"));
+  for (const f of readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith(".sql") && f >= MIGRATION)
+    .sort())
+    sqlite.exec(readFileSync(resolve(MIGRATIONS, f), "utf8"));
 };
 
 let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string };
@@ -26,7 +29,11 @@ beforeEach(() => {
 });
 
 const call = async <T>(path: string, init: AuthedInit = {}): Promise<{ status: number; body: T }> => {
-  const res = (await worker.fetch((await authedRequest(`https://recipes.example/api${path}`, init)) as never, env as never, {} as ExecutionContext)) as Response;
+  const res = (await worker.fetch(
+    (await authedRequest(`https://recipes.example/api${path}`, init)) as never,
+    env as never,
+    {} as ExecutionContext,
+  )) as Response;
   return { status: res.status, body: (await res.json()) as T };
 };
 const json = (method: string, body: unknown): AuthedInit => ({ method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -70,7 +77,17 @@ describe("migration 0006 (tag groups)", () => {
     row("c", ["course:main", "list:next-up"]);
     migrate();
 
-    expect(tagsOf("a")).toEqual(["course:main", "method:oven", "list:next-up", "status:stub", "todo:method", "list:friends", "list:birthday", "diet:vegan", "cuisine:indian"]);
+    expect(tagsOf("a")).toEqual([
+      "course:main",
+      "method:oven",
+      "list:next-up",
+      "status:stub",
+      "todo:method",
+      "list:friends",
+      "list:birthday",
+      "diet:vegan",
+      "cuisine:indian",
+    ]);
     expect(tagsOf("a")).toEqual(upgradeTags(old));
     expect(tagsOf("b")).toEqual(["course:breakfast"]);
     expect(tagsOf("c")).toEqual(["course:main", "list:next-up"]);

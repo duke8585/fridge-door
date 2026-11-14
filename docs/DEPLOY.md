@@ -57,14 +57,14 @@ cp wrangler.example.jsonc wrangler.jsonc
 
 Replace every `<...>` value:
 
-| key | value |
-|---|---|
-| `routes[0].pattern` | your domain, e.g. `recipes.example.com` (see step 9) |
-| `vars.MCP_RESOURCE` | `https://<your domain>/mcp`. MCP tokens are bound to this exact URL |
-| `kv_namespaces[0].id` | the KV id from step 1 |
-| `d1_databases[0].database_id` | the D1 id from step 1 |
-| `r2_buckets[0].bucket_name` | the bucket name, if you chose another one |
-| `env.stg.*` | the same for staging; `MCP_RESOURCE` is `https://fridge-door-stg.<your-subdomain>.workers.dev/mcp` |
+| key                           | value                                                                                              |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| `routes[0].pattern`           | your domain, e.g. `recipes.example.com` (see step 9)                                               |
+| `vars.MCP_RESOURCE`           | `https://<your domain>/mcp`. MCP tokens are bound to this exact URL                                |
+| `kv_namespaces[0].id`         | the KV id from step 1                                                                              |
+| `d1_databases[0].database_id` | the D1 id from step 1                                                                              |
+| `r2_buckets[0].bucket_name`   | the bucket name, if you chose another one                                                          |
+| `env.stg.*`                   | the same for staging; `MCP_RESOURCE` is `https://fridge-door-stg.<your-subdomain>.workers.dev/mcp` |
 
 Your workers.dev subdomain is shown in the dashboard under Workers & Pages.
 
@@ -125,13 +125,13 @@ A GitHub OAuth App has a single callback URL, so create a second app for staging
 
 Secrets are set per environment and never live in the repository.
 
-| secret | needed | what |
-|---|---|---|
-| `SESSION_SECRET` | yes | HMAC key for the session and OAuth state cookies. Rotating it logs everyone out |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for Google login | from step 4 |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | for GitHub login | from step 4 |
-| `IMPORT_TOKEN` | for `npm run load-import` and the base backfill | bearer token accepted only on `PUT /api/import/:ref`, `PUT /api/recipes/:id/cover` and `PUT /api/catalogue/backfill`, acting as `max` |
-| `ANTHROPIC_API_KEY` | optional | link import with Claude, and Claude Haiku for ingredient names the catalogue does not know. Without it, link import still works (schema.org Recipe data is mapped field by field, other pages become stubs) and unknown ingredients get a rule-based base in aisle "other" |
+| secret                                     | needed                                          | what                                                                                                                                                                                                                                                                       |
+| ------------------------------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_SECRET`                           | yes                                             | HMAC key for the session and OAuth state cookies. Rotating it logs everyone out                                                                                                                                                                                            |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for Google login                                | from step 4                                                                                                                                                                                                                                                                |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | for GitHub login                                | from step 4                                                                                                                                                                                                                                                                |
+| `IMPORT_TOKEN`                             | for `npm run load-import` and the base backfill | bearer token accepted only on `PUT /api/import/:ref`, `PUT /api/recipes/:id/cover` and `PUT /api/catalogue/backfill`, acting as `max`                                                                                                                                      |
+| `ANTHROPIC_API_KEY`                        | optional                                        | link import with Claude, and Claude Haiku for ingredient names the catalogue does not know. Without it, link import still works (schema.org Recipe data is mapped field by field, other pages become stubs) and unknown ingredients get a rule-based base in aisle "other" |
 
 Production:
 

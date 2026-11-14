@@ -58,7 +58,8 @@ export function findDuplicates(
   const url = draft.source_url ? normalizeSourceUrl(draft.source_url) : undefined;
   const out: DuplicateCandidate[] = [];
   for (const r of existing) {
-    if (url && r.source_url && normalizeSourceUrl(r.source_url) === url) out.push({ id: r.id, title: r.title, source_url: r.source_url, reason: "same source_url" });
+    if (url && r.source_url && normalizeSourceUrl(r.source_url) === url)
+      out.push({ id: r.id, title: r.title, source_url: r.source_url, reason: "same source_url" });
     else if (titleSimilarity(draft.title, r.title) >= SIMILAR_TITLE) out.push({ id: r.id, title: r.title, source_url: r.source_url, reason: "similar title" });
   }
   return out;

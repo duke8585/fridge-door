@@ -1,5 +1,5 @@
 /** Recipe search, shared by the list page (client side, offline) and the MCP search_recipes tool. */
-import { EMPTY_CATALOGUE, resolveLocal, type Catalogue } from "./catalogue";
+import { type Catalogue, EMPTY_CATALOGUE, resolveLocal } from "./catalogue";
 import { tagValue } from "./tags";
 
 /** `bases`: the ingredients' catalogue bases, so "apples" finds "red apple". Missing in summaries cached by older builds. */
@@ -38,7 +38,11 @@ export function searchRank(r: Searchable, terms: readonly QueryTerm[]): number |
   if (terms.length === 0) return 0;
   const [title, mid, notes, bases] = fields(r);
   let haystack = title;
-  for (const [rank, extra] of [[0, ""], [1, mid], [2, notes]] as const) {
+  for (const [rank, extra] of [
+    [0, ""],
+    [1, mid],
+    [2, notes],
+  ] as const) {
     if (extra) haystack += `\n${extra}`;
     if (terms.every((t) => haystack.includes(t.word) || (rank > 0 && bases.has(t.base)))) return rank;
   }

@@ -1,15 +1,14 @@
 import type { AisleOrder } from "../../shared/catalogue";
 import type { ShoppingItem, ShoppingSyncResponse } from "../../shared/schema";
 import { upgradeTag } from "../../shared/tags";
-import { api, ApiError, AuthError, NetworkError } from "../lib/api";
+import { ApiError, AuthError, api, NetworkError } from "../lib/api";
+import { recipesToKeep } from "../lib/offlineRecipes";
 import { signal } from "../lib/signal";
-import { refreshUser } from "../lib/user";
+import { currentUser, refreshUser } from "../lib/user";
 import { applyRemoteAisleOrder } from "./aisles";
 import { refreshCatalogue } from "./catalogue";
 import { kvGet, kvSet, type QueuedOp } from "./idb";
 import { allOps, onEnqueue, refreshPending, removeOps } from "./outbox";
-import { recipesToKeep } from "../lib/offlineRecipes";
-import { currentUser } from "../lib/user";
 import { cacheRecipes, loadSummaries, refreshOpenRecipes, summaries } from "./recipes";
 import { applyRemoteShopping, shopping } from "./shopping";
 
@@ -131,7 +130,10 @@ async function pushOne(op: QueuedOp): Promise<void> {
         await api(`/comments/${op.id}`, { method: "DELETE" });
         break;
       case "catalogue.aisle":
-        await api(`/catalogue/bases/${encodeURIComponent(op.base)}`, { method: "PUT", json: { aisle: op.aisle, updated_at: op.updated_at ?? "1970-01-01T00:00:00.000Z" } });
+        await api(`/catalogue/bases/${encodeURIComponent(op.base)}`, {
+          method: "PUT",
+          json: { aisle: op.aisle, updated_at: op.updated_at ?? "1970-01-01T00:00:00.000Z" },
+        });
         break;
     }
   } catch (e) {

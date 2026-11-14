@@ -27,7 +27,8 @@ export function checkTarget(raw: string): { ok: true; url: URL } | { ok: false; 
   } catch {
     return { ok: false, failure: "invalid_url", message: "That is not a valid link." };
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return { ok: false, failure: "invalid_url", message: "Only http and https links can be imported." };
+  if (url.protocol !== "https:" && url.protocol !== "http:")
+    return { ok: false, failure: "invalid_url", message: "Only http and https links can be imported." };
   if (url.username || url.password) return { ok: false, failure: "invalid_url", message: "Links with a user name or password cannot be imported." };
   if (url.port && url.port !== "80" && url.port !== "443") return { ok: false, failure: "blocked", message: `Port ${url.port} is not allowed.` };
   if (isPrivateHost(url.hostname)) return { ok: false, failure: "blocked", message: `${url.hostname} is not a public website.` };
@@ -35,7 +36,10 @@ export function checkTarget(raw: string): { ok: true; url: URL } | { ok: false; 
 }
 
 export function isPrivateHost(hostname: string): boolean {
-  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  const h = hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.$/, "");
   if (h.includes(":")) return isPrivateIpv6(h);
   const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (v4) return isPrivateIpv4(v4.slice(1).map(Number));
@@ -84,7 +88,8 @@ export async function fetchPage(raw: string, timeoutMs = PAGE_TIMEOUT_MS): Promi
       }
       if (!res.ok) {
         await res.body?.cancel();
-        if ([401, 403, 429, 451].includes(res.status)) return failed("blocked", `The site refused to send the page (HTTP ${res.status}). Some sites block automated readers.`);
+        if ([401, 403, 429, 451].includes(res.status))
+          return failed("blocked", `The site refused to send the page (HTTP ${res.status}). Some sites block automated readers.`);
         return failed("http_error", `The site answered HTTP ${res.status}.`);
       }
       const type = (res.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();

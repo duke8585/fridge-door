@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import worker from "../../worker/index";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bookmark, Recipe, RecipeSummary, User } from "../../shared/schema";
-import { TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedInit } from "./fakes";
+import worker from "../../worker/index";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_SECRET } from "./fakes";
 
 let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string };
 let sqlite: DatabaseSync;
@@ -24,7 +24,11 @@ afterEach(() => {
 });
 
 const call = async <T>(path: string, init: AuthedInit = {}): Promise<{ status: number; body: T }> => {
-  const res = (await worker.fetch((await authedRequest(`https://recipes.example/api${path}`, init)) as never, env as never, {} as ExecutionContext)) as Response;
+  const res = (await worker.fetch(
+    (await authedRequest(`https://recipes.example/api${path}`, init)) as never,
+    env as never,
+    {} as ExecutionContext,
+  )) as Response;
   return { status: res.status, body: (await res.json()) as T };
 };
 const send = (method: string, body: unknown, as: User = "max"): AuthedInit => ({

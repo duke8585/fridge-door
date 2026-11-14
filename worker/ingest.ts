@@ -4,9 +4,9 @@
  * notes posted as an "Import notes:" comment. Callers parse their input with DraftSchema first.
  */
 import { z } from "zod";
-import { findDuplicates, type DuplicateCandidate } from "../shared/duplicates";
+import { type DuplicateCandidate, findDuplicates } from "../shared/duplicates";
 import { lintRecipe, withBoardTags } from "../shared/lint";
-import { MAX_TAGS, RecipeInputSchema, type Comment, type RecipeInput, type User } from "../shared/schema";
+import { type Comment, MAX_TAGS, type RecipeInput, RecipeInputSchema, type User } from "../shared/schema";
 import type { AiEnv } from "./ai";
 import { resolveRecipe } from "./catalogue";
 import * as repo from "./repo";
@@ -36,7 +36,14 @@ export const withServerTags = (draft: Draft): RecipeInput => ({ ...draft.recipe,
 
 export function notesComment(recipeId: string, user: User, heading: string, notes: readonly string[], now: string): Comment | null {
   if (!notes.length) return null;
-  return { id: `c-${crypto.randomUUID()}`, recipe_id: recipeId, user, body_md: `${heading}\n${notes.map((n) => `- ${n}`).join("\n")}`, created_at: now, updated_at: now };
+  return {
+    id: `c-${crypto.randomUUID()}`,
+    recipe_id: recipeId,
+    user,
+    body_md: `${heading}\n${notes.map((n) => `- ${n}`).join("\n")}`,
+    created_at: now,
+    updated_at: now,
+  };
 }
 
 export type IngestSource = "mcp" | "url-import";

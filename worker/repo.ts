@@ -1,10 +1,13 @@
 /** D1 access. Rows <-> shared types. No validation here; callers pass parsed data. */
+
+import type { Aisle, AisleOrder, CatalogueAlias, CatalogueData, CatalogueEntry } from "../shared/catalogue";
+import type { Revision, RevisionMeta, RevisionSource } from "../shared/revisions";
 import type {
+  Bookmark,
   Comment,
   CoverFocus,
   ImportRecord,
   MetricUnit,
-  Bookmark,
   Rating,
   Recipe,
   RecipeInput,
@@ -15,8 +18,6 @@ import type {
   Time,
   User,
 } from "../shared/schema";
-import type { Aisle, AisleOrder, CatalogueAlias, CatalogueData, CatalogueEntry } from "../shared/catalogue";
-import type { Revision, RevisionMeta, RevisionSource } from "../shared/revisions";
 
 type RecipeRow = {
   id: string;
@@ -156,10 +157,7 @@ export async function getRecipe(db: D1Database, id: string): Promise<Recipe | nu
 }
 
 export async function listComments(db: D1Database, recipeId: string): Promise<Comment[]> {
-  const { results } = await db
-    .prepare("SELECT * FROM comments WHERE recipe_id = ? ORDER BY created_at")
-    .bind(recipeId)
-    .all<Comment>();
+  const { results } = await db.prepare("SELECT * FROM comments WHERE recipe_id = ? ORDER BY created_at").bind(recipeId).all<Comment>();
   return results;
 }
 
@@ -200,7 +198,13 @@ export async function upsertRecipe(db: D1Database, id: string, input: RecipeInpu
 }
 
 function slugify(title: string): string {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "recipe";
+  return (
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40) || "recipe"
+  );
 }
 
 /** A readable id from the title, with a random suffix when it is taken. */
@@ -434,21 +438,14 @@ export async function recipeExists(db: D1Database, id: string): Promise<boolean>
  * Read-modify-write of the tag list with compare-and-swap on the old JSON, retried, so two
  * concurrent PATCHes cannot overwrite each other. Returns the new tags, or null if the recipe is gone.
  */
-export async function updateTags(
-  db: D1Database,
-  id: string,
-  edit: (tags: string[]) => string[],
-  change: ContentChange,
-): Promise<string[] | null> {
+export async function updateTags(db: D1Database, id: string, edit: (tags: string[]) => string[], change: ContentChange): Promise<string[] | null> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const row = await db.prepare("SELECT tags_json FROM recipes WHERE id = ?").bind(id).first<{ tags_json: string }>();
     if (!row) return null;
     const next = edit(JSON.parse(row.tags_json) as string[]);
     const nextJson = JSON.stringify(next);
     if (nextJson === row.tags_json) return next; // no-op delta
-    const cas = db
-      .prepare("UPDATE recipes SET tags_json = ?, updated_at = ? WHERE id = ? AND tags_json = ?")
-      .bind(nextJson, change.now, id, row.tags_json);
+    const cas = db.prepare("UPDATE recipes SET tags_json = ?, updated_at = ? WHERE id = ? AND tags_json = ?").bind(nextJson, change.now, id, row.tags_json);
     const [res] = await writeContent(db, id, change, [cas]);
     if (res!.meta.changes > 0) return next;
   }
@@ -569,7 +566,14 @@ export async function recordUrlImportUsage(db: D1Database, logId: number, model:
     .run();
 }
 
-export type UsageTotals = { imports: number; model_imports: number; input_tokens: number; output_tokens: number; cache_read_tokens: number; cache_write_tokens: number };
+export type UsageTotals = {
+  imports: number;
+  model_imports: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+};
 
 export async function urlImportUsageSince(db: D1Database, since: string): Promise<UsageTotals> {
   const row = await db
@@ -626,9 +630,7 @@ export async function addAutoEntries(db: D1Database, entries: readonly AutoEntry
   if (entries.length === 0) return;
   const base = db.prepare("INSERT OR IGNORE INTO ingredient_bases (base, aisle, origin, updated_at) VALUES (?, ?, 'auto', ?)");
   const alias = db.prepare("INSERT OR IGNORE INTO ingredient_aliases (alias, base, origin, updated_at) VALUES (?, ?, 'auto', ?)");
-  await db.batch(
-    entries.flatMap((e) => [base.bind(e.base, e.aisle, now), ...(e.alias !== e.base ? [alias.bind(e.alias, e.base, now)] : [])]),
-  );
+  await db.batch(entries.flatMap((e) => [base.bind(e.base, e.aisle, now), ...(e.alias !== e.base ? [alias.bind(e.alias, e.base, now)] : [])]));
 }
 
 /** A person put `base` into `aisle`: the base becomes a user entry (created when it was only a rule result). */
@@ -673,7 +675,9 @@ export async function setUserEntry(db: D1Database, e: { alias: string; base: str
 
 /** Every recipe's ingredient JSON, for the base backfill. */
 export async function allSections(db: D1Database, cursor = "", limit = 50): Promise<{ id: string; sections_json: string }[]> {
-  return (await db.prepare("SELECT id, sections_json FROM recipes WHERE id > ? ORDER BY id LIMIT ?").bind(cursor, limit).all<{ id: string; sections_json: string }>()).results;
+  return (
+    await db.prepare("SELECT id, sections_json FROM recipes WHERE id > ? ORDER BY id LIMIT ?").bind(cursor, limit).all<{ id: string; sections_json: string }>()
+  ).results;
 }
 
 /**

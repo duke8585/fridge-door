@@ -41,7 +41,11 @@ export function toggleItem(id: string): Promise<void> {
 const groupLines = (base: string): ShoppingItem[] => [...shopping.get().values()].filter((i) => !i.deleted && placeOf(i, catalogue.get()).base === base);
 
 export function setGroupChecked(base: string, checked: boolean): Promise<void> {
-  return writeLocal(groupLines(base).filter((i) => i.checked !== checked).map((i) => touch(i, { checked })));
+  return writeLocal(
+    groupLines(base)
+      .filter((i) => i.checked !== checked)
+      .map((i) => touch(i, { checked })),
+  );
 }
 
 /**

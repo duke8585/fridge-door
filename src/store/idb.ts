@@ -1,4 +1,4 @@
-import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { type DBSchema, deleteDB, type IDBPDatabase, openDB } from "idb";
 import type { RecipeDetail, RecipeSummary, ShoppingItem } from "../../shared/schema";
 import type { OutboxOp } from "./ops";
 
@@ -49,9 +49,7 @@ async function adoptLegacy(fresh: IDBPDatabase<LocalDB>, legacyName: string): Pr
   const legacy = await openDB(legacyName);
   try {
     if (legacy.objectStoreNames.length === 0 || (await fresh.get("kv", ADOPTED_KEY))) return;
-    const rows = await Promise.all(
-      STORES.map(async (s) => ({ store: s, keys: await legacy.getAllKeys(s), values: await legacy.getAll(s) })),
-    );
+    const rows = await Promise.all(STORES.map(async (s) => ({ store: s, keys: await legacy.getAllKeys(s), values: await legacy.getAll(s) })));
     const tx = fresh.transaction(STORES, "readwrite");
     for (const { store, keys, values } of rows) {
       // kv keeps its keys out of line; the other stores carry them in the value.

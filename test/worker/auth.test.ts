@@ -1,21 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolve } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { RevisionListItem } from "../../shared/revisions";
+import type { RecipeDetail } from "../../shared/schema";
+import { type AuthEnv, allowlist, authRoutes, normalizeEmail } from "../../worker/auth";
 import worker from "../../worker/index";
-import { authRoutes, allowlist, normalizeEmail, type AuthEnv } from "../../worker/auth";
 import {
+  b64url,
   SESSION_COOKIE,
   SESSION_MAX_AGE_S,
   STATE_COOKIE,
   STATE_MAX_AGE_S,
-  b64url,
   signSession,
   signState,
   verifySession,
   verifyState,
 } from "../../worker/session";
-import type { RecipeDetail } from "../../shared/schema";
-import type { RevisionListItem } from "../../shared/revisions";
-import { TEST_IMPORT_TOKEN, TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedInit } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_IMPORT_TOKEN, TEST_SECRET } from "./fakes";
 
 const NOW = Date.parse("2026-11-09T12:00:00Z");
 const ORIGIN = "https://fridge-door-stg.example.workers.dev";
@@ -132,7 +132,11 @@ describe("login pages", () => {
   it("offers dev login only with DEV_LOGIN on a loopback host", async () => {
     const dev = { ...authEnv, DEV_LOGIN: "true" };
     const post = (origin: string, env: AuthEnv) =>
-      authRoutes(new Request(`${origin}/auth/dev`, { method: "POST", body: new URLSearchParams({ user: "nadine", next: "/shopping" }) }), env, NOW) as Promise<Response>;
+      authRoutes(
+        new Request(`${origin}/auth/dev`, { method: "POST", body: new URLSearchParams({ user: "nadine", next: "/shopping" }) }),
+        env,
+        NOW,
+      ) as Promise<Response>;
     expect(await (await get("/login", {}, dev, "http://localhost:8788")).text()).toContain("Dev: log in as nadine");
     expect(await (await get("/login", {}, dev)).text()).not.toContain("/auth/dev");
     const ok = await post("http://localhost:8788", dev);
@@ -197,8 +201,7 @@ describe("OAuth callback", () => {
     vi.restoreAllMocks();
   });
 
-  const idToken = (claims: Record<string, unknown>): string =>
-    ["{}", JSON.stringify(claims), "sig"].map((p) => b64url(new TextEncoder().encode(p))).join(".");
+  const idToken = (claims: Record<string, unknown>): string => ["{}", JSON.stringify(claims), "sig"].map((p) => b64url(new TextEncoder().encode(p))).join(".");
 
   async function googleLogin(claims: Record<string, unknown>) {
     const start = await get("/auth/google/start?next=/shopping");
@@ -254,7 +257,8 @@ describe("OAuth callback", () => {
     const start = await get("/auth/google/start");
     const good = cookieValue(start, STATE_COOKIE)!;
     const state = new URL(start.headers.get("location")!).searchParams.get("state");
-    const cb = (q: string, cookie?: string, path = "/auth/google/callback") => get(`${path}?code=c&${q}`, cookie ? { cookie: `${STATE_COOKIE}=${cookie}` } : {});
+    const cb = (q: string, cookie?: string, path = "/auth/google/callback") =>
+      get(`${path}?code=c&${q}`, cookie ? { cookie: `${STATE_COOKIE}=${cookie}` } : {});
     const ghState = await signState(TEST_SECRET, { provider: "github", nonce: "n", next: "/" }, NOW);
     const expired = await signState(TEST_SECRET, { provider: "google", nonce: "n", next: "/", verifier: "v" }, NOW - STATE_MAX_AGE_S * 1000);
     for (const res of [
@@ -372,7 +376,12 @@ describe("Worker: who may do what", () => {
       const res = await call("/api/import/asana:1", jsonInit("PUT", record, bearer(TEST_IMPORT_TOKEN)));
       expect(res.status).toBe(201);
       const { id } = (await res.json()) as { id: string };
-      const cover = await call(`/api/recipes/${id}/cover`, { ...bearer(TEST_IMPORT_TOKEN), method: "PUT", headers: { authorization: `Bearer ${TEST_IMPORT_TOKEN}`, "content-type": "image/png" }, body: new Uint8Array([1, 2, 3]) });
+      const cover = await call(`/api/recipes/${id}/cover`, {
+        ...bearer(TEST_IMPORT_TOKEN),
+        method: "PUT",
+        headers: { authorization: `Bearer ${TEST_IMPORT_TOKEN}`, "content-type": "image/png" },
+        body: new Uint8Array([1, 2, 3]),
+      });
       expect(cover.status).toBe(200);
       const revs = (await (await call(`/api/recipes/${id}/revisions`)).json()) as RevisionListItem[];
       expect(revs[0]).toMatchObject({ source: "import", author: "max" });
@@ -384,7 +393,9 @@ describe("Worker: who may do what", () => {
       env.IMPORT_TOKEN = TEST_IMPORT_TOKEN;
       expect((await call("/api/recipes", bearer(TEST_IMPORT_TOKEN))).status).toBe(401);
       expect((await call("/api/recipes/dal/rating", jsonInit("PUT", { stars: 1 }, bearer(TEST_IMPORT_TOKEN)))).status).toBe(401);
-      expect((await call("/", { ...bearer(TEST_IMPORT_TOKEN), headers: { authorization: `Bearer ${TEST_IMPORT_TOKEN}`, accept: "text/html" } })).status).toBe(302);
+      expect((await call("/", { ...bearer(TEST_IMPORT_TOKEN), headers: { authorization: `Bearer ${TEST_IMPORT_TOKEN}`, accept: "text/html" } })).status).toBe(
+        302,
+      );
     });
   });
 });

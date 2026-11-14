@@ -28,7 +28,8 @@ export function lintRecipe(d: RecipeDraft, allowedTags: ReadonlySet<string> = ne
     const problem = tagProblem(t);
     const group = parseTag(t)?.group;
     if (problem || !group) out.push(`tag ${problem}`);
-    else if (!TAG_GROUPS[group].content && !allowedTags.has(t)) out.push(`tag "${t}": ${group} tags are set by the server or the owners, not by the recipe writer`);
+    else if (!TAG_GROUPS[group].content && !allowedTags.has(t))
+      out.push(`tag "${t}": ${group} tags are set by the server or the owners, not by the recipe writer`);
   }
   out.push(...groupCountProblems(tags));
   if (EMOJI.test(recipe.title)) out.push("emoji in title");

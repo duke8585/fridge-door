@@ -6,11 +6,11 @@ import { formatMinutes, matchesTimeFilter, TIME_FILTERS } from "../../shared/tim
 import { BookmarkButton, BookmarkIcon } from "../components/BookmarkButton";
 import { AvgStars } from "../components/Stars";
 import { TagChip } from "../components/TagChip";
-import { compareRecipes, DEFAULT_SORT, nextSort, SORTS, type Sort } from "../lib/recipeSort";
-import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
-import { Link, navigate } from "../lib/router";
 import { ago } from "../lib/ago";
+import { compareRecipes, DEFAULT_SORT, nextSort, SORTS, type Sort } from "../lib/recipeSort";
+import { Link, navigate } from "../lib/router";
 import { useSignal } from "../lib/signal";
+import { facetCounts, filterGroups, matchesTagFilter } from "../lib/tagFilter";
 import { currentUser } from "../lib/user";
 import { catalogue } from "../store/catalogue";
 import { loadSummaries, recentlyCached, setBookmark, summaries } from "../store/recipes";
@@ -51,7 +51,14 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   // search and time first; the tag filter and the facet counts both work on top of these
   const searched = useMemo(() => searchRecipes(list ?? [], q, cat), [list, q, cat]);
   const base = useMemo(() => searched.filter((r) => matchesTimeFilter(r.time, time)), [searched, time]);
-  const counts = useMemo(() => facetCounts(base.map((r) => r.tags), selected), [base, selected]);
+  const counts = useMemo(
+    () =>
+      facetCounts(
+        base.map((r) => r.tags),
+        selected,
+      ),
+    [base, selected],
+  );
   // like a tag group: each duration counts what it would show with the other filters kept
   const timeCounts = useMemo(() => {
     const tagged = searched.filter((r) => matchesTagFilter(r.tags, selected));
@@ -251,7 +258,11 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
                       {r.yield.amount} {r.yield.unit}
                     </span>
                   )}
-                  {cached.has(r.id) && <span className="muted small" title="Available offline">⤓ offline</span>}
+                  {cached.has(r.id) && (
+                    <span className="muted small" title="Available offline">
+                      ⤓ offline
+                    </span>
+                  )}
                 </span>
                 <span className="tags small">{r.tags.map(cardTag).join(" · ")}</span>
                 <span className="modified small">modified {ago(r.updated_at)}</span>
@@ -262,7 +273,9 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
         ))}
       </ul>
       {list && shown.length === 0 && (
-        <p className="muted">{bookmarks && list.length === 0 ? "Nothing bookmarked yet. Tap the bookmark on a recipe to keep it here." : "No recipes match."}</p>
+        <p className="muted">
+          {bookmarks && list.length === 0 ? "Nothing bookmarked yet. Tap the bookmark on a recipe to keep it here." : "No recipes match."}
+        </p>
       )}
     </main>
   );

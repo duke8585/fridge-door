@@ -1,1 +1,12 @@
-{"recipe": {"title": "Basic Indian dal", "time": {"total_min": 25, "active_min": 10}, "sections": [{"ingredients": []}], "steps_md": "1. Cook lentils.\n2. Season.", "notes_md": "", "tags": ["course:main", "method:instant-pot", "cuisine:indian"], "source_url": "https://youtu.be/x?si=abc"}, "review": ["cups converted to grams by density: red lentils", "stub"]}
+{
+  "recipe": {
+    "title": "Basic Indian dal",
+    "time": { "total_min": 25, "active_min": 10 },
+    "sections": [{ "ingredients": [] }],
+    "steps_md": "1. Cook lentils.\n2. Season.",
+    "notes_md": "",
+    "tags": ["course:main", "method:instant-pot", "cuisine:indian"],
+    "source_url": "https://youtu.be/x?si=abc"
+  },
+  "review": ["cups converted to grams by density: red lentils", "stub"]
+}

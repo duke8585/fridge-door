@@ -3,7 +3,7 @@
  * Usage: npm run check-import -- <dir with <gid>.json files> [gid ...]
  * Exit 1 if any file fails. Prints one line per file.
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { lintRecipe } from "../shared/lint";
 import { ImportRecordSchema, toFieldErrors } from "../shared/schema";
@@ -21,9 +21,7 @@ function main(): void {
     let problems: string[];
     try {
       const parsed = LlmRecordSchema.safeParse(JSON.parse(readFileSync(join(dir, f), "utf8")));
-      problems = parsed.success
-        ? lintRecipe(parsed.data)
-        : Object.entries(toFieldErrors(parsed.error.issues)).map(([p, m]) => `${p}: ${m}`);
+      problems = parsed.success ? lintRecipe(parsed.data) : Object.entries(toFieldErrors(parsed.error.issues)).map(([p, m]) => `${p}: ${m}`);
     } catch (e) {
       problems = [`unreadable: ${(e as Error).message}`];
     }

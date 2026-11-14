@@ -1,16 +1,16 @@
-import { newId } from "../lib/id";
-import { useMemo, useState, type FormEvent } from "react";
-import { parseIngredientLine } from "../../shared/parse";
+import { type FormEvent, useMemo, useState } from "react";
 import { AISLES, aisleLabel, completeAisleOrder, isAisle, resolveLocal, singularKey } from "../../shared/catalogue";
+import { parseIngredientLine } from "../../shared/parse";
 import { formatQty } from "../../shared/scale";
 import { byAisle, groupShopping, nextTimestamp } from "../../shared/shopping";
-import { useSignal } from "../lib/signal";
+import { useArmed } from "../lib/armed";
+import { newId } from "../lib/id";
 import { Link } from "../lib/router";
+import { downloadText, shoppingToMarkdown } from "../lib/shoppingMarkdown";
+import { useSignal } from "../lib/signal";
 import { aisleOrder, setAisleOrder } from "../store/aisles";
 import { catalogue } from "../store/catalogue";
 import { addShoppingItems, clearAll, clearChecked, moveToAisle, removeItem, removeRecipe, setGroupChecked, shopping, toggleItem } from "../store/shopping";
-import { useArmed } from "../lib/armed";
-import { downloadText, shoppingToMarkdown } from "../lib/shoppingMarkdown";
 
 export function useUncheckedCount(): number {
   const items = useSignal(shopping);
@@ -29,7 +29,8 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
   // every word must appear in the base or an item name (recipe titles are not searched)
   const shown = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    const matching = words.length === 0 ? groups : groups.filter((g) => words.every((w) => [g.key, ...g.lines.map((l) => l.item)].some((n) => n.toLowerCase().includes(w))));
+    const matching =
+      words.length === 0 ? groups : groups.filter((g) => words.every((w) => [g.key, ...g.lines.map((l) => l.item)].some((n) => n.toLowerCase().includes(w))));
     return byAisle(matching, order?.order);
   }, [groups, query, order]);
   const sections = useMemo(() => byAisle(groups, order?.order), [groups, order]);
@@ -82,13 +83,7 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="shopping">
       <form className="add-free" onSubmit={add}>
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Add item, e.g. 2 l milk"
-          enterKeyHint="done"
-          aria-label="Add item"
-        />
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add item, e.g. 2 l milk" enterKeyHint="done" aria-label="Add item" />
         <button type="submit" disabled={!text.trim()}>
           Add
         </button>
@@ -153,23 +148,23 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                     </label>
                     {moving === g.key && (
                       <>
-                      <select
-                        className="aisle-select"
-                        aria-label={`Category for ${g.key}, remembered for next time`}
-                        value={g.aisle}
-                        autoFocus
-                        onChange={(e) => {
-                          if (isAisle(e.target.value)) void moveToAisle(g.key, e.target.value);
-                          setMoving(null);
-                        }}
-                      >
-                        {AISLES.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.label}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="aisle-hint">Saved for both of you: {g.key} goes here from now on, from every recipe.</p>
+                        <select
+                          className="aisle-select"
+                          aria-label={`Category for ${g.key}, remembered for next time`}
+                          value={g.aisle}
+                          autoFocus
+                          onChange={(e) => {
+                            if (isAisle(e.target.value)) void moveToAisle(g.key, e.target.value);
+                            setMoving(null);
+                          }}
+                        >
+                          {AISLES.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="aisle-hint">Saved for both of you: {g.key} goes here from now on, from every recipe.</p>
                       </>
                     )}
                     {showLines && (
@@ -177,29 +172,29 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
                         {g.lines.map((l) => {
                           const amount = [formatQty(l.qty, l.qtyMax, l.unit), differs(l.item) ? l.item : ""].filter(Boolean).join(" ");
                           return (
-                          <li key={l.id} className={l.checked ? "line done" : "line"}>
-                            <label>
-                              <input type="checkbox" checked={l.checked} onChange={() => void toggleItem(l.id)} />
-                              <span>
-                                {amount || <em className="muted">undefined</em>}
-                                {l.recipe_title && (
-                                  <>
-                                    {" - "}
-                                    {l.recipe_id ? (
-                                      <Link href={`/recipes/${l.recipe_id}`} onClick={onNavigate}>
-                                        {l.recipe_title}
-                                      </Link>
-                                    ) : (
-                                      l.recipe_title
-                                    )}
-                                  </>
-                                )}
-                              </span>
-                            </label>
-                            <button type="button" className="icon ghost" aria-label="Remove" onClick={() => void removeItem(l.id)}>
-                              ×
-                            </button>
-                          </li>
+                            <li key={l.id} className={l.checked ? "line done" : "line"}>
+                              <label>
+                                <input type="checkbox" checked={l.checked} onChange={() => void toggleItem(l.id)} />
+                                <span>
+                                  {amount || <em className="muted">undefined</em>}
+                                  {l.recipe_title && (
+                                    <>
+                                      {" - "}
+                                      {l.recipe_id ? (
+                                        <Link href={`/recipes/${l.recipe_id}`} onClick={onNavigate}>
+                                          {l.recipe_title}
+                                        </Link>
+                                      ) : (
+                                        l.recipe_title
+                                      )}
+                                    </>
+                                  )}
+                                </span>
+                              </label>
+                              <button type="button" className="icon ghost" aria-label="Remove" onClick={() => void removeItem(l.id)}>
+                                ×
+                              </button>
+                            </li>
                           );
                         })}
                       </ul>
@@ -247,7 +242,13 @@ export function ShoppingList({ onNavigate }: { onNavigate?: () => void }) {
               <button type="button" className="icon ghost" aria-label={`Move ${aisleLabel(a)} up`} disabled={i === 0} onClick={() => moveAisle(i, -1)}>
                 ↑
               </button>
-              <button type="button" className="icon ghost" aria-label={`Move ${aisleLabel(a)} down`} disabled={i === aisles.length - 1} onClick={() => moveAisle(i, 1)}>
+              <button
+                type="button"
+                className="icon ghost"
+                aria-label={`Move ${aisleLabel(a)} down`}
+                disabled={i === aisles.length - 1}
+                onClick={() => moveAisle(i, 1)}
+              >
                 ↓
               </button>
             </li>

@@ -7,10 +7,10 @@
  * The token is sent as `Authorization: Bearer`; the server accepts it on the import and cover routes only.
  * Exit 1 if any record failed. Prints one line per record that changed or failed, then the counts.
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { extname, join } from "node:path";
 import { contentHash, coverHash, focusParam } from "../shared/cover";
-import { ImportRecordSchema, toFieldErrors, type ImportRecord, type ImportResult, type ImportStatus } from "../shared/schema";
+import { type ImportRecord, ImportRecordSchema, type ImportResult, type ImportStatus, toFieldErrors } from "../shared/schema";
 
 const CONTENT_TYPE: Record<string, string> = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" };
 
@@ -64,7 +64,12 @@ async function main(): Promise<void> {
     let line: string | undefined;
     try {
       const parsed = ImportRecordSchema.safeParse(JSON.parse(readFileSync(join(outDir, f), "utf8")));
-      if (!parsed.success) throw new Error(Object.entries(toFieldErrors(parsed.error.issues)).map(([p, m]) => `${p}: ${m}`).join("; "));
+      if (!parsed.success)
+        throw new Error(
+          Object.entries(toFieldErrors(parsed.error.issues))
+            .map(([p, m]) => `${p}: ${m}`)
+            .join("; "),
+        );
       const r = await loadOne(client, parsed.data, imagesDir);
       outcome = r.status;
       if (outcome !== "unchanged") line = `${outcome.padEnd(9)} ${f} -> /recipes/${r.id}${r.cover ? " (+cover)" : ""}`;

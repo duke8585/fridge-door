@@ -6,10 +6,10 @@ One contract for every way a recipe enters the app: the Asana backfill now, the 
 
 ## Who decides what
 
-| Field | Decided by |
-|---|---|
-| `source_ref`, `status`, `cover`, `ratings`, `comments`, the `list:`, `status:` and `todo:` tags | `import/asana_map.py`, deterministic, never the LLM |
-| `recipe.*` content, the `course:`, `cuisine:`, `method:`, `diet:` and `collection:` tags, `time`, `review` | the normalizer (LLM), following this file |
+| Field                                                                                                      | Decided by                                          |
+| ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `source_ref`, `status`, `cover`, `ratings`, `comments`, the `list:`, `status:` and `todo:` tags            | `import/asana_map.py`, deterministic, never the LLM |
+| `recipe.*` content, the `course:`, `cuisine:`, `method:`, `diet:` and `collection:` tags, `time`, `review` | the normalizer (LLM), following this file           |
 
 The normalizer writes `import/llm/<gid>.json` with only `{ recipe, review }`.
 `asana_map.py` merges it with the deterministic fields into `import/out/<gid>.json`.

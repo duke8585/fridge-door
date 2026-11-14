@@ -37,8 +37,7 @@ export function compareRecipes({ id, dir }: Sort): (a: Sortable, b: Sortable) =>
     case "added":
       return (a, b) => s * byTime(a.created_at, b.created_at) || byTitle(a, b);
     case "rating":
-      return (a, b) =>
-        (a.avg_rating === null ? 1 : 0) - (b.avg_rating === null ? 1 : 0) || s * ((a.avg_rating ?? 0) - (b.avg_rating ?? 0)) || byTitle(a, b);
+      return (a, b) => (a.avg_rating === null ? 1 : 0) - (b.avg_rating === null ? 1 : 0) || s * ((a.avg_rating ?? 0) - (b.avg_rating ?? 0)) || byTitle(a, b);
     case "az":
       return (a, b) => s * byTitle(a, b);
   }

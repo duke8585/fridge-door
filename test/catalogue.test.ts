@@ -41,10 +41,24 @@ describe("resolveLocal", () => {
 describe("water, diet qualifiers and frozen", () => {
   const big = buildCatalogue({
     bases: [
-      ["water", "home"], ["hot sauce", "oils-sauces"], ["red onion", "produce"], ["onion", "produce"], ["ground coriander", "spices"],
-      ["coriander", "produce"], ["sugar", "baking"], ["fresh yeast", "dairy"], ["dry yeast", "baking"], ["ice cream", "frozen"], ["white wine", "drinks"],
-      ["butter", "dairy"], ["chicken stock", "spices"], ["stevia", "oils-sauces"], ["cottage cheese", "dairy"], ["tortilla", "international"],
-      ["frozen blueberry", "frozen"], ["salt", "spices"],
+      ["water", "home"],
+      ["hot sauce", "oils-sauces"],
+      ["red onion", "produce"],
+      ["onion", "produce"],
+      ["ground coriander", "spices"],
+      ["coriander", "produce"],
+      ["sugar", "baking"],
+      ["fresh yeast", "dairy"],
+      ["dry yeast", "baking"],
+      ["ice cream", "frozen"],
+      ["white wine", "drinks"],
+      ["butter", "dairy"],
+      ["chicken stock", "spices"],
+      ["stevia", "oils-sauces"],
+      ["cottage cheese", "dairy"],
+      ["tortilla", "international"],
+      ["frozen blueberry", "frozen"],
+      ["salt", "spices"],
     ].map(([base, aisle]) => ({ base: base!, aisle: aisle as never, origin: "seed" as const })),
     aliases: [{ alias: "granulated sugar", base: "sugar", origin: "seed" }],
   });
@@ -116,7 +130,13 @@ describe("aisle order", () => {
   });
 });
 
-const row = (id: string, item: string, extra: Partial<ShoppingItem> = {}): ShoppingItem => ({ id, item, checked: false, updated_at: "2026-11-09T10:00:00.000Z", ...extra });
+const row = (id: string, item: string, extra: Partial<ShoppingItem> = {}): ShoppingItem => ({
+  id,
+  item,
+  checked: false,
+  updated_at: "2026-11-09T10:00:00.000Z",
+  ...extra,
+});
 
 describe("shopping list by base and aisle", () => {
   it("groups red apple and apples into one group and sorts groups by the household aisle order", () => {
@@ -129,7 +149,12 @@ describe("shopping list by base and aisle", () => {
       ],
       cat,
     );
-    expect(groups.find((g) => g.key === "apple")?.lines.map((l) => l.id).sort()).toEqual(["1", "2"]);
+    expect(
+      groups
+        .find((g) => g.key === "apple")
+        ?.lines.map((l) => l.id)
+        .sort(),
+    ).toEqual(["1", "2"]);
     const sections = byAisle(groups, ["grains", "produce"]);
     expect(sections.map((s) => [s.aisle, s.groups.map((g) => g.key)])).toEqual([
       ["grains", ["red lentil"]],
@@ -145,7 +170,16 @@ describe("shopping list by base and aisle", () => {
     expect(g!.aisle).toBe("sweets-snacks");
   });
   it("rows from a recipe carry the ingredient's base and the catalogue's aisle", () => {
-    const rows = ingredientsToShopping([{ item: "red lentils", qty: 200, unit: "g", base: "red lentil" }, { item: "salt", note: "to taste" }], { id: "r", title: "R" }, () => "id", "t", cat);
+    const rows = ingredientsToShopping(
+      [
+        { item: "red lentils", qty: 200, unit: "g", base: "red lentil" },
+        { item: "salt", note: "to taste" },
+      ],
+      { id: "r", title: "R" },
+      () => "id",
+      "t",
+      cat,
+    );
     expect(rows.map((r) => [r.base, r.aisle])).toEqual([
       ["red lentil", "grains"],
       [undefined, undefined],

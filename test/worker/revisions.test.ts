@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import worker from "../../worker/index";
-import type { ImportRecord, Recipe, RecipeInput, User } from "../../shared/schema";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { contentOf, type Revision, type RevisionListItem } from "../../shared/revisions";
-import { TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedInit } from "./fakes";
+import type { ImportRecord, Recipe, RecipeInput, User } from "../../shared/schema";
+import worker from "../../worker/index";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_SECRET } from "./fakes";
 
 let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string };
 let sqlite: DatabaseSync;
@@ -25,7 +25,11 @@ afterEach(() => {
 });
 
 const call = async <T>(path: string, init: AuthedInit = {}): Promise<{ status: number; body: T }> => {
-  const res = (await worker.fetch((await authedRequest(`https://recipes.example/api${path}`, init)) as never, env as never, {} as ExecutionContext)) as Response;
+  const res = (await worker.fetch(
+    (await authedRequest(`https://recipes.example/api${path}`, init)) as never,
+    env as never,
+    {} as ExecutionContext,
+  )) as Response;
   return { status: res.status, body: (await res.json()) as T };
 };
 const send = (method: string, body: unknown, as: User = "max"): AuthedInit => ({
@@ -217,7 +221,10 @@ describe("restore", () => {
     seedRow();
     await call("/recipes/pancakes/rating", send("PUT", { stars: 5 }));
     at(1);
-    await call("/recipes/pancakes", send("PUT", { ...pancakes, title: "Ruined", sections: [{ ingredients: [{ item: "sand", qty: 1, unit: "kg" }] }], tags: [] }));
+    await call(
+      "/recipes/pancakes",
+      send("PUT", { ...pancakes, title: "Ruined", sections: [{ ingredients: [{ item: "sand", qty: 1, unit: "kg" }] }], tags: [] }),
+    );
     const baseline = (await revisions("pancakes")).at(-1)!;
     at(2);
     const res = await call<Recipe>(`/recipes/pancakes/revisions/${baseline.id}/restore`, send("POST", {}, "nadine"));

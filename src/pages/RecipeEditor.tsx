@@ -1,33 +1,33 @@
-import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { parseIngredientBlock, parseIngredientLine, parseNumber } from "../../shared/parse";
-import {
-  deleteEmptyRow,
-  emptyRow,
-  FIELDS,
-  isEmptyRow,
-  moveRow as moveRowIn,
-  newKey,
-  rowFromIngredient,
-  smartSplitRow,
-  type DraftSection,
-  type Field,
-  type Row,
-} from "../lib/editorRows";
+import { type ClipboardEvent, type KeyboardEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { METRIC_UNITS } from "../../shared/constants";
-import { COVER_TYPES, DEFAULT_FOCUS, coverFileProblem, coverUrl, focusPosition, pointToFocus } from "../../shared/cover";
+import { COVER_TYPES, coverFileProblem, coverUrl, DEFAULT_FOCUS, focusPosition, pointToFocus } from "../../shared/cover";
 import type { DuplicateCandidate } from "../../shared/duplicates";
+import { parseIngredientBlock, parseIngredientLine, parseNumber } from "../../shared/parse";
 import type { CoverFocus, FieldErrors, Ingredient, Recipe, RecipeDetail, RecipeInput } from "../../shared/schema";
 import { AI_UNAVAILABLE_TEXT, type UrlImportError, type UrlImportSaved } from "../../shared/urlImport";
 import { Markdown } from "../components/Markdown";
 import { TagInput } from "../components/TagInput";
-import { addTag } from "../lib/tagInput";
-import { LoadErrorNotice } from "./RecipeView";
-import { api, ApiError, AuthError, NetworkError } from "../lib/api";
+import { ApiError, AuthError, api, NetworkError } from "../lib/api";
+import {
+  type DraftSection,
+  deleteEmptyRow,
+  emptyRow,
+  FIELDS,
+  type Field,
+  isEmptyRow,
+  moveRow as moveRowIn,
+  newKey,
+  type Row,
+  rowFromIngredient,
+  smartSplitRow,
+} from "../lib/editorRows";
 import { Link, navigate } from "../lib/router";
 import { useSignal } from "../lib/signal";
+import { addTag } from "../lib/tagInput";
 import { currentUser } from "../lib/user";
-import { dropImport, takeImport, type PendingImport } from "../store/importDraft";
+import { dropImport, type PendingImport, takeImport } from "../store/importDraft";
 import { detailSignal, loadRecipe, replaceRecipe, setBookmark, setCoverFocus } from "../store/recipes";
+import { LoadErrorNotice } from "./RecipeView";
 
 // ---------- draft model (strings while typing, converted on save) ----------
 type Draft = {
@@ -83,14 +83,16 @@ function toBody(d: Draft): unknown {
     notes_md: d.notes_md,
     sections: d.sections.map((s) => ({
       title: opt(s.title),
-      ingredients: s.rows.filter((r) => !isEmptyRow(r)).map((r) => ({
-        item: r.item,
-        qty: num(r.qty),
-        qtyMax: num(r.qtyMax),
-        unit: opt(r.unit),
-        prep: opt(r.prep),
-        note: opt(r.note),
-      })),
+      ingredients: s.rows
+        .filter((r) => !isEmptyRow(r))
+        .map((r) => ({
+          item: r.item,
+          qty: num(r.qty),
+          qtyMax: num(r.qtyMax),
+          unit: opt(r.unit),
+          prep: opt(r.prep),
+          note: opt(r.note),
+        })),
     })),
   };
 }
@@ -273,11 +275,7 @@ function EditorForm({
       if (first!.title && !sec.title) sec.title = first!.title;
       if (sec.rows.length === 0) sec.rows.push(emptyRow());
       sections[si] = sec;
-      sections.splice(
-        si + 1,
-        0,
-        ...more.map((s) => ({ key: k(), title: s.title ?? "", rows: [...s.ingredients.map(rowFromIngredient), emptyRow()] })),
-      );
+      sections.splice(si + 1, 0, ...more.map((s) => ({ key: k(), title: s.title ?? "", rows: [...s.ingredients.map(rowFromIngredient), emptyRow()] })));
       return { ...d, sections };
     });
   };
@@ -394,8 +392,8 @@ function EditorForm({
 
       <h2>Ingredients</h2>
       <p className="muted small">
-        Enter adds a row below. Type or paste lines like <code>200 g flour, sifted</code> into an item field to split them.
-        Backspace in an empty row deletes it, Alt+↑/↓ moves a row.
+        Enter adds a row below. Type or paste lines like <code>200 g flour, sifted</code> into an item field to split them. Backspace in an empty row deletes
+        it, Alt+↑/↓ moves a row.
       </p>
       {err("sections") && <p className="error">{err("sections")}</p>}
       {draft.sections.map((s, si) => (
@@ -411,7 +409,13 @@ function EditorForm({
             <button type="button" className="icon ghost" onClick={() => moveSection(si, -1)} disabled={si === 0} aria-label="Move section up">
               ↑
             </button>
-            <button type="button" className="icon ghost" onClick={() => moveSection(si, 1)} disabled={si === draft.sections.length - 1} aria-label="Move section down">
+            <button
+              type="button"
+              className="icon ghost"
+              onClick={() => moveSection(si, 1)}
+              disabled={si === draft.sections.length - 1}
+              aria-label="Move section down"
+            >
               ↓
             </button>
             <button
@@ -420,7 +424,10 @@ function EditorForm({
               aria-label="Remove section"
               onClick={() => {
                 if (s.rows.some((r) => !isEmptyRow(r)) && !confirm("Remove section and its ingredients?")) return;
-                setDraft((d) => ({ ...d, sections: d.sections.length > 1 ? d.sections.filter((_, i) => i !== si) : [{ key: k(), title: "", rows: [emptyRow()] }] }));
+                setDraft((d) => ({
+                  ...d,
+                  sections: d.sections.length > 1 ? d.sections.filter((_, i) => i !== si) : [{ key: k(), title: "", rows: [emptyRow()] }],
+                }));
               }}
             >
               ×
@@ -460,7 +467,13 @@ function EditorForm({
                   onPaste={onItemPaste(si, ri)}
                 />
                 <input {...common("prep")} className="prep" placeholder="prep" onChange={(e) => updateRow(si, ri, "prep", e.target.value)} />
-                <input {...common("note")} className="note" placeholder="note" enterKeyHint="next" onChange={(e) => updateRow(si, ri, "note", e.target.value)} />
+                <input
+                  {...common("note")}
+                  className="note"
+                  placeholder="note"
+                  enterKeyHint="next"
+                  onChange={(e) => updateRow(si, ri, "note", e.target.value)}
+                />
                 <div className="row-actions">
                   <button type="button" className="icon ghost" tabIndex={-1} onClick={() => moveRow(si, ri, -1)} aria-label="Move up">
                     ↑
@@ -489,7 +502,11 @@ function EditorForm({
           />
         </fieldset>
       ))}
-      <button type="button" className="secondary" onClick={() => setDraft((d) => ({ ...d, sections: [...d.sections, { key: k(), title: "", rows: [emptyRow()] }] }))}>
+      <button
+        type="button"
+        className="secondary"
+        onClick={() => setDraft((d) => ({ ...d, sections: [...d.sections, { key: k(), title: "", rows: [emptyRow()] }] }))}
+      >
         + Add section
       </button>
 
@@ -552,7 +569,11 @@ function ImportPanel({
         </p>
       )}
       <p className="muted small">
-        Draft from <a href={draft.recipe.source_url} target="_blank" rel="noreferrer">{draft.recipe.source_url}</a>. Check it, then Save.
+        Draft from{" "}
+        <a href={draft.recipe.source_url} target="_blank" rel="noreferrer">
+          {draft.recipe.source_url}
+        </a>
+        . Check it, then Save.
         {draft.review_notes.length > 0 && " The review notes are posted as a comment when you save."}
       </p>
       {draft.review_notes.length > 0 && (
@@ -716,7 +737,11 @@ function CoverInput({ recipe, staged, onStage }: { recipe: Recipe; staged?: File
         </button>
       </div>
       <span className="muted small">Paste an image (⌘V / Ctrl+V) to replace the cover</span>
-      {status && <span className="error" role="status">{status}</span>}
+      {status && (
+        <span className="error" role="status">
+          {status}
+        </span>
+      )}
     </div>
   );
 }

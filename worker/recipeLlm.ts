@@ -4,13 +4,13 @@
  * tool_choice, so the call uses "auto" with parallel calls off and the prompt names the tool; a
  * reply without the tool call counts as a failed attempt. One retry, with the problem list.
  */
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import styleGuide from "../import/NORMALIZE.md?raw";
 import { RecipeInputSchema } from "../shared/schema";
 import { CONTENT_GROUPS, fixedTags, isFixedGroup, vocabularyLines } from "../shared/tags";
 import { strictSchema } from "./ai";
-import { DraftSchema, draftProblems, type Draft } from "./ingest";
+import { type Draft, DraftSchema, draftProblems } from "./ingest";
 
 export const IMPORT_MODEL = "claude-sonnet-5-5";
 const TOOL_NAME = "record_recipe";
@@ -94,7 +94,10 @@ type Checked = { draft: Draft; problems: string[] } | null;
 
 /** Zod issues and lint problems for one tool input; null when it is not even the right shape. */
 function check(input: unknown, sourceUrl: string): Checked {
-  const withSource = typeof input === "object" && input !== null && "recipe" in input && typeof input.recipe === "object" && input.recipe !== null ? { ...input, recipe: { ...input.recipe, source_url: sourceUrl } } : null;
+  const withSource =
+    typeof input === "object" && input !== null && "recipe" in input && typeof input.recipe === "object" && input.recipe !== null
+      ? { ...input, recipe: { ...input.recipe, source_url: sourceUrl } }
+      : null;
   if (!withSource) return null;
   const parsed = DraftSchema.safeParse(withSource);
   if (parsed.success) return { draft: parsed.data, problems: draftProblems(parsed.data) };
@@ -142,7 +145,9 @@ export async function draftRecipe(client: Anthropic, input: DraftInput): Promise
     if (attempt === MAX_ATTEMPTS) break;
     messages.push({ role: "assistant", content: res.content });
     if (toolUse) {
-      const problems = checked?.problems ?? [cutOff ? "the output was cut off; keep notes_md and review_notes short" : `call ${TOOL_NAME} with the tool's input schema`];
+      const problems = checked?.problems ?? [
+        cutOff ? "the output was cut off; keep notes_md and review_notes short" : `call ${TOOL_NAME} with the tool's input schema`,
+      ];
       messages.push({
         role: "user",
         content: [

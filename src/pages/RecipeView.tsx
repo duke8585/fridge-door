@@ -1,23 +1,23 @@
-import { newId } from "../lib/id";
 import { useEffect, useMemo, useState } from "react";
-import type { Comment, Ingredient, Recipe } from "../../shared/schema";
 import { coverUrl, focusPosition } from "../../shared/cover";
-import { formatTime } from "../../shared/time";
 import { factorForYield, formatNumber, formatQty, scaleIngredient, spoonInMl } from "../../shared/scale";
+import type { Comment, Ingredient, Recipe } from "../../shared/schema";
 import { ingredientsToShopping, nextTimestamp } from "../../shared/shopping";
+import { formatTime } from "../../shared/time";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { Markdown, splitSteps } from "../components/Markdown";
-import { recipeToText, shareText, type ShareResult } from "../lib/shareText";
 import { StarsInput } from "../components/Stars";
 import { TagInput, type TagValue } from "../components/TagInput";
+import { ago, formatDate } from "../lib/ago";
+import { loginHref } from "../lib/api";
+import { newId } from "../lib/id";
 import { Link } from "../lib/router";
 import { MAX_FACTOR, parseFactor, readScale, writeScale } from "../lib/scaleParams";
-import { ago, formatDate } from "../lib/ago";
+import { recipeToText, type ShareResult, shareText } from "../lib/shareText";
 import { useSignal } from "../lib/signal";
 import { currentUser } from "../lib/user";
-import { loginHref } from "../lib/api";
-import { addTag, deleteComment, detailSignal, loadRecipe, putComment, rate, removeTag, setBookmark, type LoadError } from "../store/recipes";
 import { catalogue } from "../store/catalogue";
+import { addTag, deleteComment, detailSignal, type LoadError, loadRecipe, putComment, rate, removeTag, setBookmark } from "../store/recipes";
 import { addShoppingItems } from "../store/shopping";
 import { openRecipes } from "../store/sync";
 
@@ -66,9 +66,26 @@ export function RecipeView({ id }: { id: string }) {
     };
   }, [id]);
 
-  if (state.missing) return <main className="page"><p>Recipe not found. <Link href="/">Back</Link></p></main>;
-  if (!state.detail && state.error) return <main className="page"><LoadErrorNotice error={state.error} cached={false} /></main>;
-  if (!state.detail) return <main className="page"><p className="muted">Loading...</p></main>;
+  if (state.missing)
+    return (
+      <main className="page">
+        <p>
+          Recipe not found. <Link href="/">Back</Link>
+        </p>
+      </main>
+    );
+  if (!state.detail && state.error)
+    return (
+      <main className="page">
+        <LoadErrorNotice error={state.error} cached={false} />
+      </main>
+    );
+  if (!state.detail)
+    return (
+      <main className="page">
+        <p className="muted">Loading...</p>
+      </main>
+    );
   return (
     <>
       {state.error && (
@@ -120,10 +137,7 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
   const [fullCover, setFullCover] = useState(false);
 
   const f = recipe.yield ? factorForYield(recipe.yield.amount, servings) : factor;
-  const scaled = useMemo(
-    () => recipe.sections.map((s) => ({ ...s, ingredients: s.ingredients.map((i) => scaleIngredient(i, f)) })),
-    [recipe.sections, f],
-  );
+  const scaled = useMemo(() => recipe.sections.map((s) => ({ ...s, ingredients: s.ingredients.map((i) => scaleIngredient(i, f)) })), [recipe.sections, f]);
   const steps = useMemo(() => splitSteps(recipe.steps_md), [recipe.steps_md]);
   const mine = recipe.ratings.find((r) => r.user === user)?.stars;
   const bookmarked = recipe.bookmarks.some((b) => b.user === user);
@@ -141,7 +155,13 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
 
   const addToList = async (): Promise<void> => {
     const now = nextTimestamp();
-    const rows = ingredientsToShopping(scaled.flatMap((s) => s.ingredients), recipe, () => newId(), now, catalogue.get());
+    const rows = ingredientsToShopping(
+      scaled.flatMap((s) => s.ingredients),
+      recipe,
+      () => newId(),
+      now,
+      catalogue.get(),
+    );
     await addShoppingItems(rows);
     setToast(`Added ${rows.length} items${f !== 1 ? ` (x${formatNumber(f)})` : ""}`);
     setTimeout(() => setToast(undefined), 2500);
@@ -335,11 +355,23 @@ function ShareButton({ recipe, factor }: { recipe: Recipe; factor: number }) {
   }, [result]);
   return (
     <>
-      <button type="button" className="secondary" onClick={() => void shareText(recipeToText(recipe, factor, `${location.origin}/recipes/${recipe.id}`)).then(setResult)}>
+      <button
+        type="button"
+        className="secondary"
+        onClick={() => void shareText(recipeToText(recipe, factor, `${location.origin}/recipes/${recipe.id}`)).then(setResult)}
+      >
         Share
       </button>
-      {result === "copied" && <span className="muted small" role="status">Copied</span>}
-      {result === "failed" && <span className="error small" role="status">Could not share or copy</span>}
+      {result === "copied" && (
+        <span className="muted small" role="status">
+          Copied
+        </span>
+      )}
+      {result === "failed" && (
+        <span className="error small" role="status">
+          Could not share or copy
+        </span>
+      )}
     </>
   );
 }
@@ -490,7 +522,11 @@ function CommentForm(props: { initial?: string; submitLabel: string; onSubmit: (
         setPreview(false);
       }}
     >
-      {preview ? <div className="preview"><Markdown src={body || "_nothing to preview_"} /></div> : (
+      {preview ? (
+        <div className="preview">
+          <Markdown src={body || "_nothing to preview_"} />
+        </div>
+      ) : (
         <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="Markdown supported" />
       )}
       <div className="row gap">

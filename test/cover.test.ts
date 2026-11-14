@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_FOCUS, MAX_COVER_BYTES, coverFileProblem, focusPosition, parseFocusParam, pointToFocus } from "../shared/cover";
+import { coverFileProblem, DEFAULT_FOCUS, focusPosition, MAX_COVER_BYTES, parseFocusParam, pointToFocus } from "../shared/cover";
 
 describe("pointToFocus (pointer over the rendered image -> percent)", () => {
   const box = { left: 100, top: 50, width: 400, height: 200 };

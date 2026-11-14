@@ -7,10 +7,7 @@ const recipe = {
   title: "Dal",
   yield: { amount: 2, unit: "servings" },
   time: null,
-  sections: [
-    { title: "Base", ingredients: [{ item: "red lentils", qty: 200, unit: "g" }] },
-    { ingredients: [{ item: "salt" }] },
-  ],
+  sections: [{ title: "Base", ingredients: [{ item: "red lentils", qty: 200, unit: "g" }] }, { ingredients: [{ item: "salt" }] }],
   steps_md: "1. Rinse the **lentils**.\n2. Simmer, see [video](https://example.com/v).",
   notes_md: "## Tip\nUse *ghee*.",
   tags: ["course:main"],

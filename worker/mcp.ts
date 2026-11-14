@@ -8,23 +8,13 @@ import styleGuide from "../import/NORMALIZE.md?raw";
 import { AISLE_IDS, AISLES, buildCatalogue, resolveLocal, storedName } from "../shared/catalogue";
 import { MAX_COVER_BYTES } from "../shared/cover";
 import { recipeToMarkdown, scaleSections } from "../shared/recipeMarkdown";
-import {
-  CoverFocusSchema,
-  MAX_TAGS,
-  RecipeInputSchema,
-  StarsSchema,
-  TagSchema,
-  type Comment,
-  type Bookmark,
-  type Rating,
-  type User,
-} from "../shared/schema";
+import { type Bookmark, type Comment, CoverFocusSchema, MAX_TAGS, type Rating, RecipeInputSchema, StarsSchema, TagSchema, type User } from "../shared/schema";
+import { queryTerms, searchRank } from "../shared/search";
 import { ingredientsToShopping } from "../shared/shopping";
-import { searchRank, queryTerms } from "../shared/search";
-import { applyTagDelta, overMax, renameLegacyTag, STUB_TAG, TAG_GROUPS, TAG_GROUP_NAMES, tagProblem } from "../shared/tags";
+import { applyTagDelta, overMax, renameLegacyTag, STUB_TAG, TAG_GROUP_NAMES, TAG_GROUPS, tagProblem } from "../shared/tags";
 import { backfillBases, placeShopping, resolveRecipe } from "./catalogue";
 import { storeCover } from "./covers";
-import { ReviewNotesSchema, draftProblems, ingestRecipe, notesComment, withServerTags } from "./ingest";
+import { draftProblems, ingestRecipe, notesComment, ReviewNotesSchema, withServerTags } from "./ingest";
 import { readAtMost } from "./pageFetch";
 import * as repo from "./repo";
 
@@ -132,7 +122,10 @@ export async function fetchCoverImage(imageUrl: string): Promise<FetchedImage> {
       return { ok: false, message: `Not a valid URL: ${url}` };
     }
     if (parsed.protocol !== "https:") return { ok: false, message: `Only https image URLs are allowed (got ${parsed.protocol}//${parsed.host}).` };
-    const res = await fetch(parsed.href, { redirect: "manual", headers: { accept: Object.keys(MCP_COVER_TYPES).join(", "), "user-agent": "FridgeDoor/1.0 (cover import)" } });
+    const res = await fetch(parsed.href, {
+      redirect: "manual",
+      headers: { accept: Object.keys(MCP_COVER_TYPES).join(", "), "user-agent": "FridgeDoor/1.0 (cover import)" },
+    });
     const location = res.headers.get("location");
     if (res.status >= 300 && res.status < 400 && location) {
       await res.body?.cancel();
@@ -148,7 +141,10 @@ export async function fetchCoverImage(imageUrl: string): Promise<FetchedImage> {
     const ext = MCP_COVER_TYPES[type];
     if (!ext) {
       await res.body?.cancel();
-      return { ok: false, message: `Expected image/jpeg, image/png or image/webp, got "${type || "no content-type"}". Use the direct image URL, not the page.` };
+      return {
+        ok: false,
+        message: `Expected image/jpeg, image/png or image/webp, got "${type || "no content-type"}". Use the direct image URL, not the page.`,
+      };
     }
     const tooLarge = { ok: false, message: "The image is larger than 10 MB." } as const;
     if (Number(res.headers.get("content-length") ?? 0) > MAX_COVER_BYTES) {
@@ -182,7 +178,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
     "search_recipes",
     {
       description:
-        "Find recipes. Every query word must appear in the title, an ingredient, the notes or a tag value (case-insensitive), or name one of the recipe's ingredient bases (\"apples\" finds \"red apple\"); title matches come first. Returns compact rows.",
+        'Find recipes. Every query word must appear in the title, an ingredient, the notes or a tag value (case-insensitive), or name one of the recipe\'s ingredient bases ("apples" finds "red apple"); title matches come first. Returns compact rows.',
       inputSchema: z.object({
         query: z.string().max(200).optional(),
         tags: z.array(TagSchema).max(10).optional().describe("Full group:value tags; all must match"),
@@ -255,7 +251,8 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
   server.registerTool(
     "create_recipe",
     {
-      description: "Create a recipe that follows get_style_guide. Rejects with every problem listed, or with duplicate candidates unless confirm_duplicate is true.",
+      description:
+        "Create a recipe that follows get_style_guide. Rejects with every problem listed, or with duplicate candidates unless confirm_duplicate is true.",
       inputSchema: z.object({
         recipe: RecipeInputSchema,
         review_notes: McpReviewNotesSchema,
@@ -264,7 +261,11 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       annotations: WRITE,
     },
     async ({ recipe, review_notes, confirm_duplicate }) => {
-      const result = await ingestRecipe(env, { recipe, review_notes: review_notes ?? [] }, { author: user, source: "mcp", confirmDuplicate: confirm_duplicate, now: now() });
+      const result = await ingestRecipe(
+        env,
+        { recipe, review_notes: review_notes ?? [] },
+        { author: user, source: "mcp", confirmDuplicate: confirm_duplicate, now: now() },
+      );
       if (!result.ok && result.reason === "problems") return lintFailure("create_recipe", result.problems);
       if (!result.ok) {
         return fail(
@@ -462,7 +463,9 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       const data = await repo.loadCatalogue(db);
       const aliases = new Map<string, string[]>();
       for (const a of data.aliases) aliases.set(a.base, [...(aliases.get(a.base) ?? []), a.alias]);
-      const bases = data.bases.filter((b) => (!origin || b.origin === origin) && (!aisle || b.aisle === aisle)).map((b) => ({ ...b, aliases: aliases.get(b.base) ?? [] }));
+      const bases = data.bases
+        .filter((b) => (!origin || b.origin === origin) && (!aisle || b.aisle === aisle))
+        .map((b) => ({ ...b, aliases: aliases.get(b.base) ?? [] }));
       return ok({ total: bases.length, bases });
     },
   );

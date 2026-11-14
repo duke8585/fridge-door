@@ -22,7 +22,14 @@ describe("JSON-LD extraction", () => {
             totalTime: "PT45M",
             recipeIngredient: ["1 cup red lentils", "2 cloves garlic, minced"],
             recipeInstructions: [
-              { "@type": "HowToSection", name: "Dal", itemListElement: [{ "@type": "HowToStep", text: "Rinse the lentils." }, { "@type": "HowToStep", text: "Simmer <b>20 min</b>." }] },
+              {
+                "@type": "HowToSection",
+                name: "Dal",
+                itemListElement: [
+                  { "@type": "HowToStep", text: "Rinse the lentils." },
+                  { "@type": "HowToStep", text: "Simmer <b>20 min</b>." },
+                ],
+              },
               { "@type": "HowToSection", name: "Tadka", itemListElement: [{ "@type": "HowToStep", text: "Fry the garlic." }] },
             ],
           },
@@ -82,7 +89,20 @@ describe("readable text fallback", () => {
 
 describe("fetch policy helpers", () => {
   it("flags private and local hosts", () => {
-    for (const h of ["localhost", "127.0.0.1", "10.1.2.3", "172.20.0.1", "192.168.1.10", "169.254.169.254", "100.64.0.1", "[::1]", "fd00::1", "nas.local", "router", "0.0.0.0"]) {
+    for (const h of [
+      "localhost",
+      "127.0.0.1",
+      "10.1.2.3",
+      "172.20.0.1",
+      "192.168.1.10",
+      "169.254.169.254",
+      "100.64.0.1",
+      "[::1]",
+      "fd00::1",
+      "nas.local",
+      "router",
+      "0.0.0.0",
+    ]) {
       expect(isPrivateHost(h), h).toBe(true);
     }
     for (const h of ["example.com", "8.8.8.8", "172.32.0.1", "[2606:4700::1111]"]) expect(isPrivateHost(h), h).toBe(false);
@@ -98,7 +118,9 @@ describe("fetch policy helpers", () => {
 
 describe("titles", () => {
   it("cleans platform titles", () => {
-    expect(cleanTitle('Chef Anna on Instagram: "Crispy chickpea bowl 🥗 #vegan #easy\nRecipe below"', "https://www.instagram.com/p/x")).toBe("Crispy chickpea bowl");
+    expect(cleanTitle('Chef Anna on Instagram: "Crispy chickpea bowl 🥗 #vegan #easy\nRecipe below"', "https://www.instagram.com/p/x")).toBe(
+      "Crispy chickpea bowl",
+    );
     expect(cleanTitle("Best socca ever | TikTok", "https://www.tiktok.com/@a/video/1")).toBe("Best socca ever");
     expect(cleanTitle(undefined, "https://www.youtube.com/watch?v=1")).toBe("Recipe from youtube.com");
   });

@@ -40,8 +40,19 @@ describe("parseIngredientBlock", () => {
   it("splits lines and sections", () => {
     const out = parseIngredientBlock("200 g flour\n2 eggs\n\nFor the sauce:\n100 ml cream\nsalt to taste\n");
     expect(out).toEqual([
-      { ingredients: [{ item: "flour", qty: 200, unit: "g" }, { item: "eggs", qty: 2, unit: "piece" }] },
-      { title: "For the sauce", ingredients: [{ item: "cream", qty: 100, unit: "ml" }, { item: "salt", note: "to taste" }] },
+      {
+        ingredients: [
+          { item: "flour", qty: 200, unit: "g" },
+          { item: "eggs", qty: 2, unit: "piece" },
+        ],
+      },
+      {
+        title: "For the sauce",
+        ingredients: [
+          { item: "cream", qty: 100, unit: "ml" },
+          { item: "salt", note: "to taste" },
+        ],
+      },
     ]);
   });
   it("uses a leading header as the first section title", () => {

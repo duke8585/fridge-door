@@ -3,8 +3,9 @@
  * line, "-" bullets and the steps as written, with emphasis marks and link syntax taken out.
  * No photo, tags, ratings or comments. `link` (the recipe in the app) ends it as an HTML comment.
  */
-import { formatNumber } from "../../shared/scale";
+
 import { ingredientLine, scaleSections } from "../../shared/recipeMarkdown";
+import { formatNumber } from "../../shared/scale";
 import type { Recipe } from "../../shared/schema";
 import { formatTime } from "../../shared/time";
 

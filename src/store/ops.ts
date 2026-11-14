@@ -77,15 +77,17 @@ export function applyOp(d: RecipeDetail, op: OutboxOp): RecipeDetail {
       // An op queued by a build from before the tag groups carries old names; the server maps them the same way.
       return {
         ...d,
-        recipe: { ...d.recipe, tags: applyTagDelta(d.recipe.tags, { add: op.add.map(upgradeTag), remove: op.remove.map(upgradeTag) }), updated_at: later(d.recipe.updated_at, op.at) },
+        recipe: {
+          ...d.recipe,
+          tags: applyTagDelta(d.recipe.tags, { add: op.add.map(upgradeTag), remove: op.remove.map(upgradeTag) }),
+          updated_at: later(d.recipe.updated_at, op.at),
+        },
       };
     case "cover.focus":
       return { ...d, recipe: { ...d.recipe, cover_focus: op.focus, updated_at: later(d.recipe.updated_at, op.at) } };
     case "comment.put": {
       const exists = d.comments.some((c) => c.id === op.comment.id);
-      const comments = exists
-        ? d.comments.map((c) => (c.id === op.comment.id ? op.comment : c))
-        : [...d.comments, op.comment];
+      const comments = exists ? d.comments.map((c) => (c.id === op.comment.id ? op.comment : c)) : [...d.comments, op.comment];
       return { ...d, comments };
     }
     case "comment.delete":

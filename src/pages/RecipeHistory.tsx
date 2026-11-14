@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
+import {
+  type Change,
+  contentOf,
+  diffRecipes,
+  type LineOp,
+  type RecipeDiff,
+  type Revision,
+  type RevisionListItem,
+  type RevisionSource,
+  restoredContent,
+} from "../../shared/revisions";
 import type { Recipe } from "../../shared/schema";
-import { contentOf, diffRecipes, restoredContent, type Change, type LineOp, type RecipeDiff, type Revision, type RevisionListItem, type RevisionSource } from "../../shared/revisions";
-import { api, AuthError, NetworkError } from "../lib/api";
+import { AuthError, api, NetworkError } from "../lib/api";
 import { Link } from "../lib/router";
 import { useSignal } from "../lib/signal";
 import { detailSignal, loadRecipe, replaceRecipe } from "../store/recipes";
@@ -59,7 +69,8 @@ export function RecipeHistory({ id }: { id: string }) {
   };
 
   const restore = async (rev: Revision): Promise<void> => {
-    if (!confirm(`Restore the version from ${when(rev.created_at)}? The current content and tags are replaced; the current version stays in the history.`)) return;
+    if (!confirm(`Restore the version from ${when(rev.created_at)}? The current content and tags are replaced; the current version stays in the history.`))
+      return;
     setBusy(true);
     setMessage(undefined);
     try {
@@ -155,12 +166,20 @@ function Lines({ label, ops }: { label: string; ops?: LineOp[] }) {
 function DiffView({ diff }: { diff: RecipeDiff }) {
   const { tags, ingredients: ing } = diff;
   const empty =
-    !diff.title && !diff.yield && !diff.time && !diff.source_url && !diff.sections && !diff.steps && !diff.notes &&
+    !diff.title &&
+    !diff.yield &&
+    !diff.time &&
+    !diff.source_url &&
+    !diff.sections &&
+    !diff.steps &&
+    !diff.notes &&
     tags.added.length + tags.removed.length + ing.added.length + ing.removed.length + ing.changed.length === 0;
   if (empty) return <p className="muted">Same content as the current version (only the order of ingredients may differ).</p>;
   return (
     <div className="diff">
-      <p className="muted small">What restoring this version would change: <ins>+ comes back</ins>, <del>- goes away</del>.</p>
+      <p className="muted small">
+        What restoring this version would change: <ins>+ comes back</ins>, <del>- goes away</del>.
+      </p>
       <FieldChange label="Title" change={diff.title} />
       <FieldChange label="Yield" change={diff.yield} />
       <FieldChange label="Time" change={diff.time} />
@@ -168,16 +187,29 @@ function DiffView({ diff }: { diff: RecipeDiff }) {
       <FieldChange label="Sections" change={diff.sections} />
       {tags.added.length + tags.removed.length > 0 && (
         <p>
-          <b>Tags:</b> {tags.added.map((t) => <ins key={`+${t}`}>+{t} </ins>)}
-          {tags.removed.map((t) => <del key={`-${t}`}>-{t} </del>)}
+          <b>Tags:</b>{" "}
+          {tags.added.map((t) => (
+            <ins key={`+${t}`}>+{t} </ins>
+          ))}
+          {tags.removed.map((t) => (
+            <del key={`-${t}`}>-{t} </del>
+          ))}
         </p>
       )}
       {ing.added.length + ing.removed.length + ing.changed.length > 0 && (
         <>
           <h3>Ingredients</h3>
           <ul className="ing-diff">
-            {ing.added.map((l, i) => <li key={`a${i}`} className="add">+ {l}</li>)}
-            {ing.removed.map((l, i) => <li key={`d${i}`} className="del">- {l}</li>)}
+            {ing.added.map((l, i) => (
+              <li key={`a${i}`} className="add">
+                + {l}
+              </li>
+            ))}
+            {ing.removed.map((l, i) => (
+              <li key={`d${i}`} className="del">
+                - {l}
+              </li>
+            ))}
             {ing.changed.map((c, i) => (
               <li key={`c${i}`} className="change">
                 ~ <del>{c.from}</del> → <ins>{c.to}</ins>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { RecipeInput } from "../shared/schema";
 import { diffLines, diffRecipes, summarizeDiff } from "../shared/revisions";
+import type { RecipeInput } from "../shared/schema";
 
 const base: RecipeInput = {
   title: "Dal",
@@ -67,7 +67,13 @@ describe("diffRecipes", () => {
       ...base,
       sections: [
         { ingredients: [{ item: "garlic", qty: 2, unit: "clove" }] },
-        { title: "Tadka", ingredients: [{ item: "Red lentils", qty: 250, unit: "g", prep: "rinsed" }, { item: "cumin", qty: 1, unit: "tsp" }] },
+        {
+          title: "Tadka",
+          ingredients: [
+            { item: "Red lentils", qty: 250, unit: "g", prep: "rinsed" },
+            { item: "cumin", qty: 1, unit: "tsp" },
+          ],
+        },
       ],
     });
     expect(d.ingredients).toEqual({
@@ -81,7 +87,14 @@ describe("diffRecipes", () => {
   it("does not mispair duplicates when one of them is unchanged", () => {
     const two = (a: number, b: number): RecipeInput => ({
       ...base,
-      sections: [{ ingredients: [{ item: "salt", qty: a, unit: "tsp" }, { item: "salt", qty: b, unit: "tsp" }] }],
+      sections: [
+        {
+          ingredients: [
+            { item: "salt", qty: a, unit: "tsp" },
+            { item: "salt", qty: b, unit: "tsp" },
+          ],
+        },
+      ],
     });
     expect(diffRecipes(two(1, 2), two(2, 3)).ingredients).toEqual({ added: [], removed: [], changed: [{ from: "1 tsp salt", to: "3 tsp salt" }] });
   });

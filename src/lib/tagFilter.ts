@@ -16,7 +16,9 @@ export function filterGroups(tagLists: readonly (readonly string[])[]): FilterGr
       .filter(([t]) => t.startsWith(`${group}:`))
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) =>
-        isFixedGroup(group) ? order.indexOf(a.tag.slice(group.length + 1)) - order.indexOf(b.tag.slice(group.length + 1)) : b.count - a.count || a.tag.localeCompare(b.tag),
+        isFixedGroup(group)
+          ? order.indexOf(a.tag.slice(group.length + 1)) - order.indexOf(b.tag.slice(group.length + 1))
+          : b.count - a.count || a.tag.localeCompare(b.tag),
       );
     return { group, tags };
   }).filter((g) => g.tags.length > 0);

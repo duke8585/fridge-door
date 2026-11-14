@@ -4,9 +4,9 @@
  * stays as the source wrote it, for the user to fix in the editor.
  */
 import { parseIngredientLine } from "../shared/parse";
+import { type Ingredient, IngredientSchema, type RecipeInput, type Yield } from "../shared/schema";
 import { groupValues, makeTag } from "../shared/tags";
-import { IngredientSchema, type Ingredient, type RecipeInput, type Yield } from "../shared/schema";
-import { instructionSteps, str, strs, type JsonObject } from "./extract";
+import { instructionSteps, type JsonObject, str, strs } from "./extract";
 import type { Draft } from "./ingest";
 
 export const NO_AI_NOTE = "imported without AI: check units and translation";
@@ -65,9 +65,21 @@ export function isoMinutes(v: string | undefined): number | undefined {
   return min > 0 && min <= 7 * 1440 ? min : undefined;
 }
 
-const sum = (a: number | undefined, b: number | undefined): number | undefined => (a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0) || undefined);
+const sum = (a: number | undefined, b: number | undefined): number | undefined =>
+  a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0) || undefined;
 
-const COURSE_ALIASES: Readonly<Record<string, string>> = { "main course": "main", "main dish": "main", dinner: "main", lunch: "main", "side dish": "side", appetizer: "snack", starter: "snack", beverage: "drink", bread: "baking", cake: "baking" };
+const COURSE_ALIASES: Readonly<Record<string, string>> = {
+  "main course": "main",
+  "main dish": "main",
+  dinner: "main",
+  lunch: "main",
+  "side dish": "side",
+  appetizer: "snack",
+  starter: "snack",
+  beverage: "drink",
+  bread: "baking",
+  cake: "baking",
+};
 
 /** Category and cuisine words that are literally in the vocabulary (at most 2 course, 1 cuisine). */
 function vocabularyTags(ld: JsonObject): string[] {

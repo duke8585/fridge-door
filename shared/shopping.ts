@@ -1,4 +1,4 @@
-import { completeAisleOrder, resolveLocal, EMPTY_CATALOGUE, type Aisle, type Catalogue } from "./catalogue";
+import { type Aisle, type Catalogue, completeAisleOrder, EMPTY_CATALOGUE, resolveLocal } from "./catalogue";
 import type { Ingredient, ShoppingItem } from "./schema";
 
 /**

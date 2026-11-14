@@ -5,11 +5,18 @@ import type { RecipeInput } from "../shared/schema";
 import { onlyValidTags, overMax, renameLegacyTag, tagProblem, upgradeTag, upgradeTags } from "../shared/tags";
 import { facetCounts, filterGroups, matchesTagFilter } from "../src/lib/tagFilter";
 
-const recipe = (tags: string[], steps = "1. Mix."): RecipeInput => ({ title: "Dal", sections: [{ ingredients: [{ item: "lentils", qty: 200, unit: "g" }] }], steps_md: steps, notes_md: "", tags });
+const recipe = (tags: string[], steps = "1. Mix."): RecipeInput => ({
+  title: "Dal",
+  sections: [{ ingredients: [{ item: "lentils", qty: 200, unit: "g" }] }],
+  steps_md: steps,
+  notes_md: "",
+  tags,
+});
 
 describe("tagProblem", () => {
   it("accepts fixed values and kebab values in free groups", () => {
-    for (const t of ["course:main", "cuisine:middle-eastern", "list:birthday", "collection:cottage-cheese-ideas", "todo:correction"]) expect(tagProblem(t)).toBeNull();
+    for (const t of ["course:main", "cuisine:middle-eastern", "list:birthday", "collection:cottage-cheese-ideas", "todo:correction"])
+      expect(tagProblem(t)).toBeNull();
   });
   it("rejects loose tags, unknown groups, unknown fixed values and non-kebab values", () => {
     expect(tagProblem("vegan")).toMatch(/has no group/);
@@ -22,7 +29,10 @@ describe("tagProblem", () => {
 
 describe("legacy names", () => {
   it("map every kind of tag an old build wrote to a valid tag", () => {
-    const old = "main oven side snack next-up dessert salad baking stub no-cook one-pot indian soup german italian breakfast birthday batch japanese basics sauce other needs-method middle-eastern korean instant-pot drink vegan mexican from-friends cambodian airfryer thai laotian".split(" ");
+    const old =
+      "main oven side snack next-up dessert salad baking stub no-cook one-pot indian soup german italian breakfast birthday batch japanese basics sauce other needs-method middle-eastern korean instant-pot drink vegan mexican from-friends cambodian airfryer thai laotian".split(
+        " ",
+      );
     expect(old).toHaveLength(34);
     for (const t of old) expect(tagProblem(upgradeTag(t))).toBeNull();
   });
@@ -47,7 +57,10 @@ describe("lint and server tags", () => {
       'tag "list:next-up": list tags are set by the server or the owners, not by the recipe writer',
     ]);
     expect(lintRecipe({ recipe: recipe(["course:main", "list:next-up"]), review: [] }, new Set(["list:next-up"]))).toEqual([]);
-    expect(lintRecipe({ recipe: recipe(["cuisine:thai", "cuisine:korean"]), review: [] })).toEqual(["needs 1-2 course tags, has 0", "needs 0-1 cuisine tags, has 2"]);
+    expect(lintRecipe({ recipe: recipe(["cuisine:thai", "cuisine:korean"]), review: [] })).toEqual([
+      "needs 1-2 course tags, has 0",
+      "needs 0-1 cuisine tags, has 2",
+    ]);
   });
   it("derives status:stub and todo:method", () => {
     expect(withBoardTags({ recipe: recipe(["course:main"], ""), review: [] })).toEqual(["course:main", "todo:method"]);
@@ -63,8 +76,20 @@ describe("list filter", () => {
   const lists = [["course:side", "course:main", "list:b"], ["course:main", "list:a", "list:b"], ["quick"]];
   it("groups tags in scheme order, fixed values in vocabulary order, free ones by use; loose tags left out", () => {
     expect(filterGroups(lists)).toEqual([
-      { group: "course", tags: [{ tag: "course:main", count: 2 }, { tag: "course:side", count: 1 }] },
-      { group: "list", tags: [{ tag: "list:b", count: 2 }, { tag: "list:a", count: 1 }] },
+      {
+        group: "course",
+        tags: [
+          { tag: "course:main", count: 2 },
+          { tag: "course:side", count: 1 },
+        ],
+      },
+      {
+        group: "list",
+        tags: [
+          { tag: "list:b", count: 2 },
+          { tag: "list:a", count: 1 },
+        ],
+      },
     ]);
   });
   it("ORs tags within a group and ANDs across groups", () => {
@@ -76,12 +101,7 @@ describe("list filter", () => {
 });
 
 describe("facetCounts", () => {
-  const lists = [
-    ["course:main", "diet:vegan"],
-    ["course:main"],
-    ["course:side", "diet:vegan"],
-    ["course:dessert", "diet:vegan"],
-  ];
+  const lists = [["course:main", "diet:vegan"], ["course:main"], ["course:side", "diet:vegan"], ["course:dessert", "diet:vegan"]];
   it("without a selection counts every use", () => {
     expect(facetCounts(lists, new Set()).get("diet:vegan")).toBe(3);
   });

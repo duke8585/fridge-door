@@ -70,7 +70,10 @@ export const str = (v: Json | undefined): string | undefined => {
   if (isObject(v)) return str(v.name) ?? str(v.text) ?? str(v["@value"]);
   return undefined;
 };
-export const strs = (v: Json | undefined): string[] => asArray(v).map(str).filter((s): s is string => !!s);
+export const strs = (v: Json | undefined): string[] =>
+  asArray(v)
+    .map(str)
+    .filter((s): s is string => !!s);
 
 /** A compact plain-text rendering of the Recipe object, the model's input on the JSON-LD path. */
 export function recipeLdToText(ld: JsonObject): string {
@@ -109,7 +112,11 @@ export type InstructionStep = { section?: string; text: string };
 
 /** HowToStep, HowToSection (its name kept per step), plain strings, or one HTML string. */
 export function instructionSteps(v: Json | undefined): InstructionStep[] {
-  if (typeof v === "string") return htmlToText(v).split("\n").filter(Boolean).map((text) => ({ text }));
+  if (typeof v === "string")
+    return htmlToText(v)
+      .split("\n")
+      .filter(Boolean)
+      .map((text) => ({ text }));
   const out: InstructionStep[] = [];
   const walk = (node: Json, section: string | undefined): void => {
     if (typeof node === "string") {
@@ -202,9 +209,27 @@ function htmlToText(html: string): string {
     .join("\n");
 }
 
-const clean = (s: string): string => htmlToText(s).replace(/\s*\n\s*/g, " ").trim();
+const clean = (s: string): string =>
+  htmlToText(s)
+    .replace(/\s*\n\s*/g, " ")
+    .trim();
 
-const NAMED: Readonly<Record<string, string>> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "-", mdash: "-", hellip: "...", frac12: "½", frac14: "¼", frac34: "¾", deg: "°", times: "x" };
+const NAMED: Readonly<Record<string, string>> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  ndash: "-",
+  mdash: "-",
+  hellip: "...",
+  frac12: "½",
+  frac14: "¼",
+  frac34: "¾",
+  deg: "°",
+  times: "x",
+};
 
 export function decodeEntities(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (all, e: string) => {

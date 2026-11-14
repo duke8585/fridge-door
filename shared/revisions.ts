@@ -1,6 +1,7 @@
 /** Recipe versions: types shared by the Worker and the history page, and the diff between two versions. */
-import type { Ingredient, RecipeInput, User } from "./schema";
+
 import { formatQty } from "./scale";
+import type { Ingredient, RecipeInput, User } from "./schema";
 import { onlyValidTags } from "./tags";
 import { formatTime } from "./time";
 
@@ -111,7 +112,11 @@ export function diffRecipes(from: RecipeInput, to: RecipeInput): RecipeDiff {
   };
 }
 
-const counts = (parts: [string, number][]): string => parts.filter(([, n]) => n > 0).map(([s, n]) => `${s}${n}`).join(" ");
+const counts = (parts: [string, number][]): string =>
+  parts
+    .filter(([, n]) => n > 0)
+    .map(([s, n]) => `${s}${n}`)
+    .join(" ");
 
 /** ["title", "tags +vegan -quick", "ingredients +2 ~1", "steps"]. Empty when nothing changed. */
 export function summarizeDiff(d: RecipeDiff): string[] {
@@ -124,7 +129,11 @@ export function summarizeDiff(d: RecipeDiff): string[] {
   const tags = [...d.tags.added.map((t) => `+${t}`), ...d.tags.removed.map((t) => `-${t}`)];
   if (tags.length) out.push(`tags ${tags.join(" ")}`);
   const ing = d.ingredients;
-  const ingCounts = counts([["+", ing.added.length], ["-", ing.removed.length], ["~", ing.changed.length]]);
+  const ingCounts = counts([
+    ["+", ing.added.length],
+    ["-", ing.removed.length],
+    ["~", ing.changed.length],
+  ]);
   if (ingCounts) out.push(`ingredients ${ingCounts}`);
   if (d.steps) out.push("steps");
   if (d.notes) out.push("notes");

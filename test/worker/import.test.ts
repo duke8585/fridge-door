@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
 import { resolve } from "node:path";
-import worker from "../../worker/index";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { ImportRecord, ImportResult, Recipe, RecipeDetail, RecipeSummary } from "../../shared/schema";
-import { TEST_IMPORT_TOKEN, TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedInit, type StoredObject } from "./fakes";
+import worker from "../../worker/index";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_IMPORT_TOKEN, TEST_SECRET } from "./fakes";
 
 let env: { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; SESSION_SECRET: string; IMPORT_TOKEN: string };
 let objects: Map<string, StoredObject>;
@@ -10,7 +10,14 @@ let objects: Map<string, StoredObject>;
 beforeEach(() => {
   const { r2, objects: o } = fakeR2();
   objects = o;
-  env = { ...oauthBindings(), DB: fakeD1(resolve(import.meta.dirname, "../../migrations")).d1, COVERS: r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET, IMPORT_TOKEN: TEST_IMPORT_TOKEN };
+  env = {
+    ...oauthBindings(),
+    DB: fakeD1(resolve(import.meta.dirname, "../../migrations")).d1,
+    COVERS: r2,
+    ASSETS: {} as Fetcher,
+    SESSION_SECRET: TEST_SECRET,
+    IMPORT_TOKEN: TEST_IMPORT_TOKEN,
+  };
 });
 
 const call = async (path: string, init: AuthedInit = {}): Promise<Response> =>

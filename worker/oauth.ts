@@ -6,8 +6,8 @@
  */
 import { AuthorizationError, type AuthRequest, type ConsentDescription, type OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import type { User } from "../shared/schema";
-import { escapeHtml, page, type AuthEnv } from "./auth";
-import { SESSION_COOKIE, readCookie, verifySession } from "./session";
+import { type AuthEnv, escapeHtml, page } from "./auth";
+import { readCookie, SESSION_COOKIE, verifySession } from "./session";
 
 /** What every MCP token carries. index.ts re-validates it on each /mcp request. */
 export type GrantProps = { user: User };
@@ -16,7 +16,8 @@ type AuthorizeEnv = AuthEnv & { OAUTH_PROVIDER: OAuthHelpers };
 
 const TITLE = "Connect";
 
-const message = (status: number, text: string): Response => page(status, `<p class="err" role="alert">${escapeHtml(text)}</p>`, new Headers(), { title: TITLE });
+const message = (status: number, text: string): Response =>
+  page(status, `<p class="err" role="alert">${escapeHtml(text)}</p>`, new Headers(), { title: TITLE });
 
 function approvalPage(consent: ConsentDescription, handle: string, user: User, headers: Headers): Response {
   const client = escapeHtml(consent.clientName);

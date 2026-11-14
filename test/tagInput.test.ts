@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addTag, normalizeTag, resolveTyped, splitTyped, tagCounts, tagKey, tagOptions, type TagKeyState, type TagOption } from "../src/lib/tagInput";
+import { addTag, normalizeTag, resolveTyped, splitTyped, type TagKeyState, type TagOption, tagCounts, tagKey, tagOptions } from "../src/lib/tagInput";
 
 const counts = tagCounts([
   ["course:main", "cuisine:indian", "list:next-up"],
@@ -46,7 +46,14 @@ describe("tagOptions", () => {
     expect(tagOptions("nope:x", counts, [])).toEqual([]);
   });
   it("lists the most used valid tags for an empty query, without picked or loose ones", () => {
-    expect(tags(tagOptions("", counts, ["course:main"]))).toEqual(["collection:cottage-cheese-ideas", "course:snack", "cuisine:indian", "list:birthday", "list:make-ahead", "list:next-up"]);
+    expect(tags(tagOptions("", counts, ["course:main"]))).toEqual([
+      "collection:cottage-cheese-ideas",
+      "course:snack",
+      "cuisine:indian",
+      "list:birthday",
+      "list:make-ahead",
+      "list:next-up",
+    ]);
   });
   it("caps existing suggestions", () => {
     expect(tagOptions("e", counts, [], 3).filter((o) => o.kind === "existing")).toHaveLength(3);

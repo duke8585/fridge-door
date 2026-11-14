@@ -6,12 +6,15 @@ const item = (id: string, item: string, extra: object = {}) => ({ id, item, chec
 
 describe("shoppingToMarkdown", () => {
   it("lists the recipes, then a checkbox per item with a link to its recipe", () => {
-    const groups = byAisle(groupShopping([
-      item("a", "red lentils", { qty: 400, unit: "g", recipe_id: "dal", recipe_title: "Dal", base: "red lentil", aisle: "grains" }),
-      item("b", "milk", { checked: true }),
-      item("c", "red lentils", { qty: 200, unit: "g", recipe_id: "soup", recipe_title: "Soup", base: "red lentil", aisle: "grains" }),
-      item("d", "apples", { base: "apple", aisle: "produce" }),
-    ]), undefined);
+    const groups = byAisle(
+      groupShopping([
+        item("a", "red lentils", { qty: 400, unit: "g", recipe_id: "dal", recipe_title: "Dal", base: "red lentil", aisle: "grains" }),
+        item("b", "milk", { checked: true }),
+        item("c", "red lentils", { qty: 200, unit: "g", recipe_id: "soup", recipe_title: "Soup", base: "red lentil", aisle: "grains" }),
+        item("d", "apples", { base: "apple", aisle: "produce" }),
+      ]),
+      undefined,
+    );
     const md = shoppingToMarkdown(groups, "https://fd.example", "2026-11-09");
     expect(md).toContain("# Shopping list 2026-11-09");
     expect(md).toContain("## Recipes\n\n- [Dal](https://fd.example/recipes/dal)\n- [Soup](https://fd.example/recipes/soup)\n");

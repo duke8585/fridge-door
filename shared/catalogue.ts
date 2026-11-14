@@ -46,13 +46,7 @@ export function completeAisleOrder(order: readonly string[] | undefined): Aisle[
 export type AisleOrder = { order: Aisle[]; updated_at: string };
 
 /** Lowercase, accents dropped, whitespace collapsed: how aliases and bases are keyed. */
-export const itemKey = (item: string): string =>
-  item
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+export const itemKey = (item: string): string => item.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 /** Words that stay as they are although they end in "s". */
 const INVARIANT = new Set(["oats", "couscous", "hummus", "asparagus", "molasses", "grits", "swiss", "brussels", "citrus", "series", "bus", "lemongrass"]);
@@ -82,9 +76,11 @@ export function singularKey(item: string): string {
  * smoked, roasted, pickled, cooked, sweet, mixed, instant.
  */
 const DESCRIPTORS = new Set(
-  ("ripe large small medium chopped diced sliced grated peeled halved quartered shredded cubed julienned finely roughly thinly coarsely drained rinsed trimmed " +
+  (
+    "ripe large small medium chopped diced sliced grated peeled halved quartered shredded cubed julienned finely roughly thinly coarsely drained rinsed trimmed " +
     "cold hot warm lukewarm boiling chilled fresh freshly organic plain toasted unsalted salted natural very overripe extra virgin granulated powdered liquid ground " +
-    "red green yellow white black whole unsweetened mild light baby mini curly slivered crushed shelled cooked filtered ice-cold").split(" "),
+    "red green yellow white black whole unsweetened mild light baby mini curly slivered crushed shelled cooked filtered ice-cold"
+  ).split(" "),
 );
 
 /** Diet qualifiers that do not change the ingredient: "low fat cottage cheese", "sugar free jelly". */
@@ -106,7 +102,9 @@ const clean = (name: string): string =>
  * keeps whichever the catalogue knows, so "salt or black pepper" still lands on "salt".
  */
 function coreNames(item: string): string[] {
-  const key = itemKey(item).replace(/\([^)]*\)/g, " ").trim();
+  const key = itemKey(item)
+    .replace(/\([^)]*\)/g, " ")
+    .trim();
   const shared = SHARED_NOUN.exec(key);
   const cores = [shared ? `${shared[1]} ${shared[2]}` : "", key.split(/,|;| or /)[0]!].map((n) => singularKey(clean(n)));
   return [...new Set(cores.filter(Boolean))];
@@ -187,6 +185,6 @@ export const ITEM_RULES: readonly string[] = [
   '- `item` names one ingredient as a shop sells it: English, lowercase (proper nouns keep their capitals), singular where natural: "egg", "red onion", "chickpea", "coconut milk", "Dijon mustard".',
   '- Keep words that change what to buy ("brown sugar", "smoked paprika", "red lentil", "ground coriander"). Put preparation, size, ripeness and freshness into `prep` or `note`: item "onion" with prep "finely chopped", not "finely chopped onion".',
   '- One ingredient per line: "salt" and "black pepper" are two lines. Alternatives go into `note` ("or 1 tsp dried"), never "butter or margarine" in `item`.',
-  "- No brands, amounts or packaging in `item`; use the common name (\"chickpea\", not \"canned Kichererbsen 400 g\").",
-  "- The server maps every `item` to a canonical base (e.g. \"Granny Smith apples\" -> apple) and an aisle for the shopping list. A plain common name resolves without guessing.",
+  '- No brands, amounts or packaging in `item`; use the common name ("chickpea", not "canned Kichererbsen 400 g").',
+  '- The server maps every `item` to a canonical base (e.g. "Granny Smith apples" -> apple) and an aisle for the shopping list. A plain common name resolves without guessing.',
 ];

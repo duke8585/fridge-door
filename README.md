@@ -109,11 +109,11 @@ import/      normalization contract (NORMALIZE.md) and tooling for a one-off Asa
 
 Storage:
 
-| binding | type | holds |
-|---|---|---|
-| `DB` | D1 | recipes, ratings, comments, shopping items, revisions, link-import log, ingredient catalogue, aisle order |
-| `COVERS` | R2 | cover images, keyed by content hash |
-| `OAUTH_KV` | KV | MCP OAuth clients, grants and tokens |
+| binding    | type | holds                                                                                                     |
+| ---------- | ---- | --------------------------------------------------------------------------------------------------------- |
+| `DB`       | D1   | recipes, ratings, comments, shopping items, revisions, link-import log, ingredient catalogue, aisle order |
+| `COVERS`   | R2   | cover images, keyed by content hash                                                                       |
+| `OAUTH_KV` | KV   | MCP OAuth clients, grants and tokens                                                                      |
 
 The client renders from IndexedDB first and revalidates from `/api`. Offline writes are applied
 optimistically and queued in an outbox of idempotent requests. The shopping list merges per item

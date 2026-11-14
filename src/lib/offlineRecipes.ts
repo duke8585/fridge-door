@@ -6,11 +6,7 @@ import type { RecipeSummary, User } from "../../shared/schema";
  * `listed` is the library list (id -> updated_at), undefined until it has loaded. A recipe that is
  * not in a loaded list was deleted, so it is skipped instead of answering 404 on every sync.
  */
-export function recipesToCache(
-  onList: Iterable<string>,
-  cached: ReadonlyMap<string, string>,
-  listed: ReadonlyMap<string, string> | undefined,
-): string[] {
+export function recipesToCache(onList: Iterable<string>, cached: ReadonlyMap<string, string>, listed: ReadonlyMap<string, string> | undefined): string[] {
   const out: string[] = [];
   for (const id of new Set(onList)) {
     const have = cached.get(id);

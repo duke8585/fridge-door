@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deleteEmptyRow, emptyRow, moveRow, smartSplitRow, type DraftSection, type Row } from "../src/lib/editorRows";
+import { type DraftSection, deleteEmptyRow, emptyRow, moveRow, type Row, smartSplitRow } from "../src/lib/editorRows";
 
 const row = (key: string, patch: Partial<Row> = {}): Row => ({ ...emptyRow(), key, ...patch });
 const sec = (key: string, ...rows: Row[]): DraftSection => ({ key, title: "", rows });

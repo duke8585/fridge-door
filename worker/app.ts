@@ -1,31 +1,31 @@
-import { Hono, type Context } from "hono";
+import { type Context, Hono } from "hono";
 import { z } from "zod";
-import { AISLE_IDS, buildCatalogue, storedName, type CatalogueData } from "../shared/catalogue";
-import { COVER_KEY, COVER_TYPES, MAX_COVER_BYTES, contentHash, parseFocusParam } from "../shared/cover";
+import { AISLE_IDS, buildCatalogue, type CatalogueData, storedName } from "../shared/catalogue";
+import { COVER_KEY, COVER_TYPES, contentHash, MAX_COVER_BYTES, parseFocusParam } from "../shared/cover";
+import { diffRecipes, type Revision, type RevisionListItem, restoredContent, summarizeDiff } from "../shared/revisions";
 import {
+  type Comment,
   CommentInputSchema,
   CoverFocusPatchSchema,
   CoverFocusSchema,
   ImportRecordSchema,
+  type ImportResult,
+  MAX_TAGS,
+  type RecipeDetail,
   RecipeInputSchema,
+  type ShoppingItem,
   ShoppingItemSchema,
   ShoppingSyncRequestSchema,
-  MAX_TAGS,
+  type ShoppingSyncResponse,
   StarsSchema,
   TagDeltaSchema,
   toFieldErrors,
-  type Comment,
-  type ImportResult,
-  type RecipeDetail,
-  type ShoppingItem,
-  type ShoppingSyncResponse,
   type User,
   type ValidationErrorBody,
 } from "../shared/schema";
-import { diffRecipes, restoredContent, summarizeDiff, type Revision, type RevisionListItem } from "../shared/revisions";
 import { searchRecipes } from "../shared/search";
 import { applyTagDelta } from "../shared/tags";
-import { authRoutes, PUBLIC_PATHS, requestUser, unauthenticated, type AuthEnv } from "./auth";
+import { type AuthEnv, authRoutes, PUBLIC_PATHS, requestUser, unauthenticated } from "./auth";
 import { backfillBases, placeShopping, resolveRecipe } from "./catalogue";
 import { storeCover } from "./covers";
 import * as repo from "./repo";
@@ -263,10 +263,7 @@ app.put("/import/:source_ref", async (c) => {
     }),
   );
   await repo.applyImport(c.env.DB, id, { ...rec, recipe: await resolveRecipe(c.env, rec.recipe) }, comments, hash, change(c, "import"));
-  return c.json<ImportResult>(
-    { id, status: existing ? "updated" : "created", cover_key: existing?.cover_key ?? null },
-    existing ? 200 : 201,
-  );
+  return c.json<ImportResult>({ id, status: existing ? "updated" : "created", cover_key: existing?.cover_key ?? null }, existing ? 200 : 201);
 });
 
 // ---------- import from a link (draft first, saved only from the editor) ----------

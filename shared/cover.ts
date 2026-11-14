@@ -24,7 +24,10 @@ export const COVER_KEY = /^covers\/[A-Za-z0-9_-]+\/([0-9a-f]{16})\.(jpg|png|webp
 
 export async function contentHash(bytes: ArrayBuffer | Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 16);
 }
 
 export const coverKey = (recipeId: string, hash: string, ext: string): string => `covers/${recipeId}/${hash}.${ext}`;

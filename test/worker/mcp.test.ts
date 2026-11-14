@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { RecipeInput, User } from "../../shared/schema";
 import worker, { mcpApi } from "../../worker/index";
 import * as repo from "../../worker/repo";
-import type { RecipeInput, User } from "../../shared/schema";
 import { b64url } from "../../worker/session";
-import { TEST_ORIGIN, TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedInit, type StoredObject } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_ORIGIN, TEST_SECRET } from "./fakes";
 
 let env: Record<string, unknown>;
 let sqlite: DatabaseSync;
@@ -90,7 +90,14 @@ async function connect(as: User): Promise<string> {
     as: null,
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "authorization_code", code, redirect_uri: REDIRECT, client_id: clientId, code_verifier: verifier, resource: `${TEST_ORIGIN}/mcp` }).toString(),
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: REDIRECT,
+      client_id: clientId,
+      code_verifier: verifier,
+      resource: `${TEST_ORIGIN}/mcp`,
+    }).toString(),
   });
   expect(token.status).toBe(200);
   return ((await token.json()) as { access_token: string }).access_token;
@@ -192,7 +199,9 @@ describe("/authorize", () => {
     const clientId = await register('<img src=x onerror="alert(1)">');
     const page = await consentPage(clientId, (await pkce()).challenge, "nadine");
     expect(page.res.status).toBe(200);
-    expect(page.html).toContain("&#60;img src=x onerror=&#34;alert(1)&#34;&#62;</strong> wants to read and edit your Fridge Door recipes as <strong>nadine</strong>");
+    expect(page.html).toContain(
+      "&#60;img src=x onerror=&#34;alert(1)&#34;&#62;</strong> wants to read and edit your Fridge Door recipes as <strong>nadine</strong>",
+    );
     expect(page.html).not.toContain("<img");
     expect(page.res.headers.get("x-frame-options")).toBe("DENY");
     expect(page.res.headers.get("content-security-policy")).toContain("form-action 'self' https://client.example");
@@ -275,20 +284,42 @@ describe("MCP tools", () => {
   it("create_recipe lists every lint problem, then saves the fixed recipe as the token's user with source mcp", async () => {
     const token = await connect("nadine");
     const bad = await tool(token, "create_recipe", {
-      recipe: dal({ title: "DAL MAKHANI 🍲", tags: ["list:next-up"], steps_md: "Rinse. Simmer.", notes_md: "Link in bio", sections: [{ ingredients: [{ item: "lentils", qty: 1, unit: "g" }, { item: "salt" }] }] }),
+      recipe: dal({
+        title: "DAL MAKHANI 🍲",
+        tags: ["list:next-up"],
+        steps_md: "Rinse. Simmer.",
+        notes_md: "Link in bio",
+        sections: [{ ingredients: [{ item: "lentils", qty: 1, unit: "g" }, { item: "salt" }] }],
+      }),
     });
     expect(bad.isError).toBe(true);
     expect(bad.text).toContain("Not saved: 7 problems");
-    for (const p of ['tag "list:next-up": list tags are set by the server or the owners, not by the recipe writer', "needs 1-2 course tags, has 0", "emoji in title", "title in caps", "no qty and no note: salt", "steps_md is not a numbered list", "promo text in notes"]) {
+    for (const p of [
+      'tag "list:next-up": list tags are set by the server or the owners, not by the recipe writer',
+      "needs 1-2 course tags, has 0",
+      "emoji in title",
+      "title in caps",
+      "no qty and no note: salt",
+      "steps_md is not a numbered list",
+      "promo text in notes",
+    ]) {
       expect(bad.text).toContain(`- ${p}`);
     }
     expect(sqlite.prepare("SELECT COUNT(*) AS n FROM recipes").get()).toEqual({ n: 0 });
 
     const good = await tool(token, "create_recipe", { recipe: dal(), review_notes: ["time estimated: 5 prep + 40 simmer"] });
     expect(good.isError).toBeFalsy();
-    expect(good.data).toMatchObject({ id: "red-lentil-dal", tags: ["course:main", "cuisine:indian", "method:one-pot"], url: `${TEST_ORIGIN}/recipes/red-lentil-dal` });
-    expect(sqlite.prepare("SELECT author, source FROM recipe_revisions WHERE recipe_id = 'red-lentil-dal'").all()).toEqual([{ author: "nadine", source: "mcp" }]);
-    expect(sqlite.prepare("SELECT user, body_md FROM comments").all()).toEqual([{ user: "nadine", body_md: "Import notes:\n- time estimated: 5 prep + 40 simmer" }]);
+    expect(good.data).toMatchObject({
+      id: "red-lentil-dal",
+      tags: ["course:main", "cuisine:indian", "method:one-pot"],
+      url: `${TEST_ORIGIN}/recipes/red-lentil-dal`,
+    });
+    expect(sqlite.prepare("SELECT author, source FROM recipe_revisions WHERE recipe_id = 'red-lentil-dal'").all()).toEqual([
+      { author: "nadine", source: "mcp" },
+    ]);
+    expect(sqlite.prepare("SELECT user, body_md FROM comments").all()).toEqual([
+      { user: "nadine", body_md: "Import notes:\n- time estimated: 5 prep + 40 simmer" },
+    ]);
   });
 
   it("create_recipe reports a schema violation precisely", async () => {
@@ -303,7 +334,14 @@ describe("MCP tools", () => {
     const noMethod = await tool(token, "create_recipe", { recipe: dal({ steps_md: "" }), review_notes: ["no method in source"] });
     expect(noMethod.data.tags).toEqual(["course:main", "cuisine:indian", "method:one-pot", "todo:method"]);
     const stub = await tool(token, "create_recipe", {
-      recipe: { title: "Kimchi pancakes", sections: [{ ingredients: [] }], steps_md: "", notes_md: "", source_url: "https://instagram.com/p/abc", tags: ["course:snack", "cuisine:korean"] },
+      recipe: {
+        title: "Kimchi pancakes",
+        sections: [{ ingredients: [] }],
+        steps_md: "",
+        notes_md: "",
+        source_url: "https://instagram.com/p/abc",
+        tags: ["course:snack", "cuisine:korean"],
+      },
       review_notes: ["stub"],
     });
     expect(stub.data.tags).toEqual(["course:snack", "cuisine:korean", "status:stub"]);
@@ -326,13 +364,27 @@ describe("MCP tools", () => {
   it("search_recipes, get_recipe and list_tags read what was written", async () => {
     const token = await connect("max");
     await tool(token, "create_recipe", { recipe: dal() });
-    await tool(token, "create_recipe", { recipe: dal({ title: "Kimchi pancakes", source_url: undefined, steps_md: "", tags: ["course:snack", "cuisine:korean"] }), review_notes: ["stub", "no source"] });
+    await tool(token, "create_recipe", {
+      recipe: dal({ title: "Kimchi pancakes", source_url: undefined, steps_md: "", tags: ["course:snack", "cuisine:korean"] }),
+      review_notes: ["stub", "no source"],
+    });
     await tool(token, "rate", { id: "red-lentil-dal", stars: 5 });
 
     const search = await tool(token, "search_recipes", { query: "lentils", max_total_min: 60 });
     expect(search.data).toEqual({
       total: 1,
-      results: [{ id: "red-lentil-dal", title: "Red lentil dal", tags: ["course:main", "cuisine:indian", "method:one-pot"], total_min: 45, ratings: { max: 5 }, bookmarked_by: [], has_cover: false, source_url: "https://www.example.com/dal/" }],
+      results: [
+        {
+          id: "red-lentil-dal",
+          title: "Red lentil dal",
+          tags: ["course:main", "cuisine:indian", "method:one-pot"],
+          total_min: 45,
+          ratings: { max: 5 },
+          bookmarked_by: [],
+          has_cover: false,
+          source_url: "https://www.example.com/dal/",
+        },
+      ],
     });
     expect((await tool(token, "search_recipes", {})).data.total).toBe(1);
     expect((await tool(token, "search_recipes", { include_stubs: true, tags: ["cuisine:korean"] })).data.results[0].id).toBe("kimchi-pancakes");
@@ -357,9 +409,17 @@ describe("MCP tools", () => {
     const stale = await tool(token, "update_recipe", { id: created.data.id, recipe: dal(), expected_updated_at: "2020-01-01T00:00:00.000Z" });
     expect(stale.isError).toBe(true);
     expect(stale.text).toContain(`current updated_at: ${created.data.updated_at}`);
-    const linted = await tool(token, "update_recipe", { id: created.data.id, recipe: dal({ steps_md: "Simmer" }), expected_updated_at: created.data.updated_at });
+    const linted = await tool(token, "update_recipe", {
+      id: created.data.id,
+      recipe: dal({ steps_md: "Simmer" }),
+      expected_updated_at: created.data.updated_at,
+    });
     expect(linted.text).toContain("- steps_md is not a numbered list");
-    const ok = await tool(token, "update_recipe", { id: created.data.id, recipe: dal({ tags: [...created.data.tags] }), expected_updated_at: created.data.updated_at });
+    const ok = await tool(token, "update_recipe", {
+      id: created.data.id,
+      recipe: dal({ tags: [...created.data.tags] }),
+      expected_updated_at: created.data.updated_at,
+    });
     expect(ok.isError).toBeFalsy();
     expect(ok.data.tags).toEqual(["course:main", "cuisine:indian", "method:one-pot"]);
     expect(sqlite.prepare("SELECT author, source FROM recipe_revisions WHERE recipe_id = ? ORDER BY id").all(created.data.id)).toEqual([
@@ -373,7 +433,9 @@ describe("MCP tools", () => {
     const created = await tool(token, "create_recipe", { recipe: dal() });
     const change = { author: "nadine", source: "mcp", now: "2099-01-01T00:00:00.000Z" } as const;
     expect(await repo.upsertRecipe(env.DB as D1Database, created.data.id, dal({ title: "Theirs" }), change)).toBe(true);
-    expect(await repo.upsertRecipe(env.DB as D1Database, created.data.id, dal({ title: "Ours" }), { ...change, author: "max" }, created.data.updated_at)).toBe(false);
+    expect(await repo.upsertRecipe(env.DB as D1Database, created.data.id, dal({ title: "Ours" }), { ...change, author: "max" }, created.data.updated_at)).toBe(
+      false,
+    );
     expect(sqlite.prepare("SELECT title FROM recipes").get()).toEqual({ title: "Theirs" });
     expect(sqlite.prepare("SELECT author FROM recipe_revisions ORDER BY id").all()).toEqual([{ author: "max" }, { author: "nadine" }]);
   });
@@ -409,13 +471,19 @@ describe("MCP tools", () => {
     expect((await tool(token, "set_tags", { id: data.id, add: ["course:pasta"] })).text).toContain('"course:pasta": course is one of');
     expect((await tool(token, "set_tags", { id: data.id, add: ["vegan"] })).data.tags).toContain("diet:vegan");
     expect((await tool(token, "set_tags", { id: data.id, add: ["course:side", "course:soup"] })).text).toContain("course allows at most 2");
-    expect(sqlite.prepare("SELECT author, source FROM recipe_revisions WHERE recipe_id = ? ORDER BY id DESC LIMIT 1").get(data.id)).toEqual({ author: "nadine", source: "mcp" });
+    expect(sqlite.prepare("SELECT author, source FROM recipe_revisions WHERE recipe_id = ? ORDER BY id DESC LIMIT 1").get(data.id)).toEqual({
+      author: "nadine",
+      source: "mcp",
+    });
 
     expect((await tool(token, "rate", { id: data.id, stars: 4 })).data.ratings).toEqual({ nadine: 4 });
     expect((await tool(token, "rate", { id: data.id, stars: 6 })).isError).toBe(true);
 
     const comment = await tool(token, "add_comment", { id: data.id, body_md: "Needs more **garlic**." });
-    expect(sqlite.prepare("SELECT user, body_md FROM comments WHERE id = ?").get(comment.data.comment_id)).toEqual({ user: "nadine", body_md: "Needs more **garlic**." });
+    expect(sqlite.prepare("SELECT user, body_md FROM comments WHERE id = ?").get(comment.data.comment_id)).toEqual({
+      user: "nadine",
+      body_md: "Needs more **garlic**.",
+    });
 
     const shop = await tool(token, "add_to_shopping_list", { id: data.id, scale: 1.5 });
     expect(shop.data).toEqual({ id: data.id, scale: 1.5, added: 2 });
@@ -480,18 +548,35 @@ describe("set_cover_from_url", () => {
 describe("MCP ingredient catalogue", () => {
   it("create_recipe and update_recipe store bases; search_recipes finds a recipe by base", async () => {
     const token = await connect("max");
-    const created = await tool(token, "create_recipe", { recipe: dal({ sections: [{ ingredients: [{ item: "red apples", qty: 2, unit: "piece" }, { item: "salt", note: "to taste" }] }] }) });
+    const created = await tool(token, "create_recipe", {
+      recipe: dal({
+        sections: [
+          {
+            ingredients: [
+              { item: "red apples", qty: 2, unit: "piece" },
+              { item: "salt", note: "to taste" },
+            ],
+          },
+        ],
+      }),
+    });
     const id = created.data.id as string;
     expect((await repo.getRecipe(env.DB as D1Database, id))!.sections[0]!.ingredients.map((i) => i.base)).toEqual(["apple", "salt"]);
     expect((await tool(token, "search_recipes", { query: "apples" })).data.results.map((r: { id: string }) => r.id)).toEqual([id]);
-    const updated = await tool(token, "update_recipe", { id, recipe: dal({ sections: [{ ingredients: [{ item: "pears", qty: 2, unit: "piece" }] }] }), expected_updated_at: created.data.updated_at });
+    const updated = await tool(token, "update_recipe", {
+      id,
+      recipe: dal({ sections: [{ ingredients: [{ item: "pears", qty: 2, unit: "piece" }] }] }),
+      expected_updated_at: created.data.updated_at,
+    });
     expect(updated.isError).toBeFalsy();
     expect((await repo.getRecipe(env.DB as D1Database, id))!.sections[0]!.ingredients.map((i) => i.base)).toEqual(["pear"]);
   });
 
   it("lookup_ingredients explains a resolution; set_ingredient teaches the catalogue and re-resolves recipes", async () => {
     const token = await connect("nadine");
-    const created = await tool(token, "create_recipe", { recipe: dal({ sections: [{ ingredients: [{ item: "Granny Smith apples", qty: 2, unit: "piece" }] }] }) });
+    const created = await tool(token, "create_recipe", {
+      recipe: dal({ sections: [{ ingredients: [{ item: "Granny Smith apples", qty: 2, unit: "piece" }] }] }),
+    });
     const look = await tool(token, "lookup_ingredients", { items: ["eggplants", "Granny Smith apples"] });
     expect(look.data.results).toEqual([
       { item: "eggplants", base: "aubergine", aisle: "produce", how: "rule", origin: "seed" },

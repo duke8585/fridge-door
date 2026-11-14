@@ -1,1 +1,11 @@
-{"recipe":{"title":"DAL 🍛","time":{"total_min":25,"active_min":30},"sections":[{"ingredients":[{"item":"red lentils","qty":1,"unit":"cup"},{"item":"salt"}]}],"steps_md":"Cook 1 cup lentils at 350 °F","notes_md":"","tags":["diet:vegan","course:main"]},"review":[]}
+{
+  "recipe": {
+    "title": "DAL 🍛",
+    "time": { "total_min": 25, "active_min": 30 },
+    "sections": [{ "ingredients": [{ "item": "red lentils", "qty": 1, "unit": "cup" }, { "item": "salt" }] }],
+    "steps_md": "Cook 1 cup lentils at 350 °F",
+    "notes_md": "",
+    "tags": ["diet:vegan", "course:main"]
+  },
+  "review": []
+}

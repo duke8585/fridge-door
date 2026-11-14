@@ -2,7 +2,7 @@
  * Just enough of D1 and R2 to run the real Worker in vitest. D1 is SQLite underneath, so
  * node:sqlite runs the same SQL (upserts, ?NNN params) with the real migrations.
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { User } from "../../shared/schema";
@@ -34,7 +34,9 @@ class FakeStatement {
 /** `before`: apply only the migrations whose file name sorts before it (to test a later migration on old data). */
 export function fakeD1(migrationsDir: string, opts: { before?: string } = {}): { d1: D1Database; sqlite: DatabaseSync } {
   const sqlite = new DatabaseSync(":memory:");
-  for (const f of readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort()) {
+  for (const f of readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()) {
     if (opts.before && f >= opts.before) break;
     sqlite.exec(readFileSync(join(migrationsDir, f), "utf8"));
   }

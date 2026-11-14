@@ -1,8 +1,8 @@
-import { buildCatalogue, EMPTY_CATALOGUE, type Aisle, type Catalogue, type CatalogueData } from "../../shared/catalogue";
+import { type Aisle, buildCatalogue, type Catalogue, type CatalogueData, EMPTY_CATALOGUE } from "../../shared/catalogue";
 import { api } from "../lib/api";
 import { signal } from "../lib/signal";
-import { loadSummaries } from "./recipes";
 import { kvGet, kvSet } from "./idb";
+import { loadSummaries } from "./recipes";
 
 /**
  * The ingredient catalogue, cached in IndexedDB so the list groups and search resolve offline.

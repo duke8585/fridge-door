@@ -26,6 +26,5 @@ export function toggleTheme(): void {
   apply(preference);
   try {
     localStorage.setItem(storageKey, preference);
-  } catch {
-  }
+  } catch {}
 }

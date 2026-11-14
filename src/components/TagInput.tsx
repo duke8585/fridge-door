@@ -1,9 +1,9 @@
-import { useEffect, useId, useMemo, useState, type KeyboardEvent } from "react";
-import { addTag, resolveTyped, splitTyped, tagCounts, tagKey, tagOptions } from "../lib/tagInput";
-import { TagChip, TagLabel } from "./TagChip";
+import { type KeyboardEvent, useEffect, useId, useMemo, useState } from "react";
 import { useArmed } from "../lib/armed";
 import { useSignal } from "../lib/signal";
+import { addTag, resolveTyped, splitTyped, tagCounts, tagKey, tagOptions } from "../lib/tagInput";
 import { loadSummaries, summaries } from "../store/recipes";
+import { TagChip, TagLabel } from "./TagChip";
 
 export type TagValue = { tags: string[]; text: string };
 

@@ -1,14 +1,44 @@
 import type { Ingredient, MetricUnit, Section } from "./schema";
 
 const UNIT_ALIASES: Record<string, MetricUnit> = {
-  g: "g", gr: "g", gram: "g", grams: "g", gramm: "g",
-  kg: "kg", kilo: "kg", kilos: "kg", kilogram: "kg", kilograms: "kg",
-  ml: "ml", millilitre: "ml", millilitres: "ml", milliliter: "ml", milliliters: "ml",
-  l: "l", litre: "l", litres: "l", liter: "l", liters: "l",
-  tsp: "tsp", tsps: "tsp", teaspoon: "tsp", teaspoons: "tsp", tl: "tsp",
-  tbsp: "tbsp", tbsps: "tbsp", tbs: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp", el: "tbsp",
-  piece: "piece", pieces: "piece", pc: "piece", pcs: "piece", x: "piece",
-  clove: "clove", cloves: "clove",
+  g: "g",
+  gr: "g",
+  gram: "g",
+  grams: "g",
+  gramm: "g",
+  kg: "kg",
+  kilo: "kg",
+  kilos: "kg",
+  kilogram: "kg",
+  kilograms: "kg",
+  ml: "ml",
+  millilitre: "ml",
+  millilitres: "ml",
+  milliliter: "ml",
+  milliliters: "ml",
+  l: "l",
+  litre: "l",
+  litres: "l",
+  liter: "l",
+  liters: "l",
+  tsp: "tsp",
+  tsps: "tsp",
+  teaspoon: "tsp",
+  teaspoons: "tsp",
+  tl: "tsp",
+  tbsp: "tbsp",
+  tbsps: "tbsp",
+  tbs: "tbsp",
+  tablespoon: "tbsp",
+  tablespoons: "tbsp",
+  el: "tbsp",
+  piece: "piece",
+  pieces: "piece",
+  pc: "piece",
+  pcs: "piece",
+  x: "piece",
+  clove: "clove",
+  cloves: "clove",
 };
 
 const UNICODE_FRACTIONS: Record<string, number> = { "¼": 0.25, "½": 0.5, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": 0.125 };
@@ -80,12 +110,19 @@ export function parseIngredientLine(line: string): Ingredient | undefined {
     for (const phrase of NOTE_PHRASES) {
       if (lower.startsWith(phrase + " ")) {
         out.note = phrase.replace(/ of$/, "").replace(/^(pinch|handful|dash)$/, "a $1");
-        rest = rest.slice(phrase.length).trim().replace(/^of\s+/i, "");
+        rest = rest
+          .slice(phrase.length)
+          .trim()
+          .replace(/^of\s+/i, "");
         break;
       }
       if (lower.endsWith(" " + phrase) || lower.endsWith(", " + phrase)) {
         out.note = phrase;
-        rest = rest.slice(0, rest.length - phrase.length).trim().replace(/,$/, "").trim();
+        rest = rest
+          .slice(0, rest.length - phrase.length)
+          .trim()
+          .replace(/,$/, "")
+          .trim();
         break;
       }
     }

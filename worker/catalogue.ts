@@ -7,18 +7,10 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import {
-  AISLE_IDS,
-  AISLES,
-  buildCatalogue,
-  resolveLocal,
-  type Aisle,
-  storedName,
-  type Catalogue,
-} from "../shared/catalogue";
+import { AISLE_IDS, AISLES, type Aisle, buildCatalogue, type Catalogue, resolveLocal, storedName } from "../shared/catalogue";
 import type { RecipeInput, ShoppingItem } from "../shared/schema";
 import { nextTimestamp } from "../shared/shopping";
-import { aiState, noteOutage, strictSchema, type AiEnv } from "./ai";
+import { type AiEnv, aiState, noteOutage, strictSchema } from "./ai";
 import * as repo from "./repo";
 
 export const CLASSIFY_MODEL = "claude-haiku-5-5";
@@ -150,7 +142,10 @@ const withBases = <T extends Pick<RecipeInput, "sections">>(input: T, places: Re
 
 /** The recipe as saved: every ingredient's base resolved from its item, whatever the writer sent as base. */
 export async function resolveRecipe<T extends RecipeInput>(env: AiEnv, input: T): Promise<T> {
-  const { places } = await resolveItems(env, input.sections.flatMap((s) => s.ingredients.map((i) => i.item)));
+  const { places } = await resolveItems(
+    env,
+    input.sections.flatMap((s) => s.ingredients.map((i) => i.item)),
+  );
   return withBases(input, places);
 }
 
@@ -162,7 +157,10 @@ export async function resolveRecipe<T extends RecipeInput>(env: AiEnv, input: T)
 export async function placeShopping(env: AiEnv, items: readonly ShoppingItem[]): Promise<ShoppingItem[]> {
   const open = items.filter((i) => !i.deleted && (!i.base || !i.aisle));
   if (open.length === 0) return [...items];
-  const { cat, places } = await resolveItems(env, open.filter((i) => !i.base).map((i) => i.item));
+  const { cat, places } = await resolveItems(
+    env,
+    open.filter((i) => !i.base).map((i) => i.item),
+  );
   return items.map((i) => {
     if (i.deleted || (i.base && i.aisle)) return i;
     const base = i.base ?? places.get(i.item)!.base;

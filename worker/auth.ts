@@ -11,23 +11,23 @@
  *   browsers fetch the manifest without cookies.
  */
 import { z } from "zod";
-import { USERS, UserSchema, type User } from "../shared/schema";
+import { USERS, type User, UserSchema } from "../shared/schema";
 import {
+  b64url,
+  constantTimeEqual,
+  fromB64url,
+  type NewOAuthState,
+  type OAuthState,
+  randomToken,
+  readCookie,
   SESSION_COOKIE,
   SESSION_MAX_AGE_S,
   STATE_COOKIE,
   STATE_MAX_AGE_S,
-  b64url,
-  constantTimeEqual,
-  fromB64url,
-  randomToken,
-  readCookie,
   signSession,
   signState,
   verifySession,
   verifyState,
-  type NewOAuthState,
-  type OAuthState,
 } from "./session";
 
 export type AuthEnv = {
@@ -71,7 +71,9 @@ const LoginsSchema = z.partialRecord(UserSchema, z.strictObject({ google: z.stri
 export function allowlist(logins: unknown, provider: ProviderId): ReadonlyMap<string, User> {
   const parsed = LoginsSchema.safeParse(logins);
   const entries = parsed.success
-    ? Object.entries(parsed.data).flatMap(([user, ids]) => (ids?.[provider] === undefined ? [] : [[NORMALIZE_KEY[provider](ids[provider]), user as User] as const]))
+    ? Object.entries(parsed.data).flatMap(([user, ids]) =>
+        ids?.[provider] === undefined ? [] : [[NORMALIZE_KEY[provider](ids[provider]), user as User] as const],
+      )
     : [];
   const keys = entries.map(([k]) => k);
   if (!parsed.success || keys.includes(null) || new Set(keys).size < keys.length) {
@@ -173,11 +175,20 @@ const github: Provider = {
   async start(clientId, redirectUri, next) {
     const state = { provider: "github", nonce: randomToken(), next } as const;
     const url = new URL("https://github.com/login/oauth/authorize");
-    url.search = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, scope: "read:user", state: state.nonce, allow_signup: "false" }).toString();
+    url.search = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: "read:user",
+      state: state.nonce,
+      allow_signup: "false",
+    }).toString();
     return { state, url };
   },
   async identify(c, code, redirectUri) {
-    const res = await fetch("https://github.com/login/oauth/access_token", formPost({ client_id: c.id, client_secret: c.secret, code, redirect_uri: redirectUri }));
+    const res = await fetch(
+      "https://github.com/login/oauth/access_token",
+      formPost({ client_id: c.id, client_secret: c.secret, code, redirect_uri: redirectUri }),
+    );
     const token = z.object({ access_token: z.string() }).safeParse(await res.json().catch(() => null));
     if (!res.ok || !token.success) {
       console.error("github token exchange failed", res.status);
@@ -218,7 +229,10 @@ button.secondary{background:#e7e5e4;color:#1c1917}</style></head>
   headers.set("cache-control", "no-store");
   headers.set("content-type", "text/html; charset=utf-8");
   headers.set("x-frame-options", "DENY");
-  headers.set("content-security-policy", `default-src 'none'; style-src 'unsafe-inline'; form-action 'self'${opts.formAction ? ` ${opts.formAction}` : ""}; frame-ancestors 'none'`);
+  headers.set(
+    "content-security-policy",
+    `default-src 'none'; style-src 'unsafe-inline'; form-action 'self'${opts.formAction ? ` ${opts.formAction}` : ""}; frame-ancestors 'none'`,
+  );
   return new Response(html, { status, headers });
 }
 
@@ -288,7 +302,11 @@ export async function authRoutes(req: Request, env: AuthEnv, nowMs: number = Dat
     const user = UserSchema.safeParse(form?.get("user"));
     const next = form?.get("next");
     if (!user.success) return errorPage(400, "Pick max or nadine.", "/");
-    return redirect(safeNext(typeof next === "string" ? next : "/"), [cookie(SESSION_COOKIE, await signSession(secret, user.data, nowMs), SESSION_MAX_AGE_S)], 303);
+    return redirect(
+      safeNext(typeof next === "string" ? next : "/"),
+      [cookie(SESSION_COOKIE, await signSession(secret, user.data, nowMs), SESSION_MAX_AGE_S)],
+      303,
+    );
   }
 
   const m = path.match(/^\/auth\/(google|github)\/(start|callback)$/);

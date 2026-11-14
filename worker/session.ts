@@ -5,7 +5,7 @@
  * Only standard web APIs, so this runs in workerd and in the node unit tests.
  */
 import { z } from "zod";
-import { USERS, UserSchema, type User } from "../shared/schema";
+import { USERS, type User, UserSchema } from "../shared/schema";
 
 export const SESSION_COOKIE = "fd_session";
 export const SESSION_MAX_AGE_S = 90 * 24 * 60 * 60;

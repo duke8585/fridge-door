@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import worker from "../../worker/index";
-import { AISLE_IDS, buildCatalogue, singularKey, storedName, type CatalogueData } from "../../shared/catalogue";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AISLE_IDS, buildCatalogue, type CatalogueData, singularKey, storedName } from "../../shared/catalogue";
 import type { ImportRecord, Recipe, RecipeInput, RecipeSummary, ShoppingItem, ShoppingSyncResponse } from "../../shared/schema";
-import { TEST_IMPORT_TOKEN, TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedInit } from "./fakes";
+import worker from "../../worker/index";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, TEST_IMPORT_TOKEN, TEST_SECRET } from "./fakes";
 
 let env: Record<string, unknown>;
 let sqlite: DatabaseSync;
@@ -15,7 +15,15 @@ let sentToClaude: any[];
 beforeEach(() => {
   const db = fakeD1(resolve(import.meta.dirname, "../../migrations"));
   sqlite = db.sqlite;
-  env = { ...oauthBindings(), DB: db.d1, COVERS: fakeR2().r2, ASSETS: {} as Fetcher, SESSION_SECRET: TEST_SECRET, IMPORT_TOKEN: TEST_IMPORT_TOKEN, ANTHROPIC_API_KEY: "sk-test" };
+  env = {
+    ...oauthBindings(),
+    DB: db.d1,
+    COVERS: fakeR2().r2,
+    ASSETS: {} as Fetcher,
+    SESSION_SECRET: TEST_SECRET,
+    IMPORT_TOKEN: TEST_IMPORT_TOKEN,
+    ANTHROPIC_API_KEY: "sk-test",
+  };
   claude = [];
   sentToClaude = [];
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -32,10 +40,19 @@ afterEach(() => {
 });
 
 const call = async <T = any>(path: string, init: AuthedInit = {}): Promise<{ status: number; body: T }> => {
-  const res = (await worker.fetch((await authedRequest(`https://recipes.example/api${path}`, init)) as never, env as never, {} as ExecutionContext)) as Response;
+  const res = (await worker.fetch(
+    (await authedRequest(`https://recipes.example/api${path}`, init)) as never,
+    env as never,
+    {} as ExecutionContext,
+  )) as Response;
   return { status: res.status, body: (await res.json()) as T };
 };
-const json = (method: string, body: unknown, extra: AuthedInit = {}): AuthedInit => ({ ...extra, method, headers: { "content-type": "application/json", ...(extra.headers as object) }, body: JSON.stringify(body) });
+const json = (method: string, body: unknown, extra: AuthedInit = {}): AuthedInit => ({
+  ...extra,
+  method,
+  headers: { "content-type": "application/json", ...(extra.headers as object) },
+  body: JSON.stringify(body),
+});
 
 const haiku = (ingredients: { item: string; base: string; aisle: string }[]): Response =>
   Response.json({
@@ -105,7 +122,16 @@ describe("every save path stores a base on each ingredient", () => {
   });
 
   it("batch import and restore", async () => {
-    const rec: ImportRecord = { source_ref: "asana:1", status: "full", section: null, cover: null, ratings: [], comments: [], recipe: { ...recipe(["chopped tomatoes"]), time: { total_min: 50 } }, review: [] };
+    const rec: ImportRecord = {
+      source_ref: "asana:1",
+      status: "full",
+      section: null,
+      cover: null,
+      ratings: [],
+      comments: [],
+      recipe: { ...recipe(["chopped tomatoes"]), time: { total_min: 50 } },
+      review: [],
+    };
     const imported = await call<{ id: string }>("/import/asana:1", json("PUT", rec, { as: null, headers: { authorization: `Bearer ${TEST_IMPORT_TOKEN}` } }));
     expect(imported.status).toBe(201);
     const id = imported.body.id;
@@ -117,7 +143,12 @@ describe("every save path stores a base on each ingredient", () => {
   });
 
   it("asks Haiku once for the unknown items and stores its answers as auto entries", async () => {
-    claude.push(haiku([{ item: "Granny Smith apples", base: "apple", aisle: "produce" }, { item: "za'atar", base: "za'atar", aisle: "spices" }]));
+    claude.push(
+      haiku([
+        { item: "Granny Smith apples", base: "apple", aisle: "produce" },
+        { item: "za'atar", base: "za'atar", aisle: "spices" },
+      ]),
+    );
     const created = await call<Recipe>("/recipes", json("POST", recipe(["Granny Smith apples", "za'atar", "butter"])));
     expect(bases(created.body)).toEqual(["apple", "za'atar", "butter"]);
     expect(sentToClaude).toHaveLength(1);
@@ -170,8 +201,15 @@ describe("recipe search", () => {
   });
 });
 
-const sync = (items: ShoppingItem[], since = 0, extra: Record<string, unknown> = {}) => call<ShoppingSyncResponse>("/shopping/sync", json("POST", { items, since, ...extra }));
-const row = (id: string, item: string, over: Partial<ShoppingItem> = {}): ShoppingItem => ({ id, item, checked: false, updated_at: "2026-11-09T10:00:00.000Z", ...over });
+const sync = (items: ShoppingItem[], since = 0, extra: Record<string, unknown> = {}) =>
+  call<ShoppingSyncResponse>("/shopping/sync", json("POST", { items, since, ...extra }));
+const row = (id: string, item: string, over: Partial<ShoppingItem> = {}): ShoppingItem => ({
+  id,
+  item,
+  checked: false,
+  updated_at: "2026-11-09T10:00:00.000Z",
+  ...over,
+});
 
 describe("shopping sync", () => {
   it("fills base and aisle for rows from older clients and keeps what newer clients send", async () => {
@@ -240,7 +278,10 @@ describe("the catalogue API", () => {
     const token = { as: null, headers: { authorization: `Bearer ${TEST_IMPORT_TOKEN}` } } as const;
     expect((await call("/catalogue/backfill", { ...token, method: "PUT" })).body).toMatchObject({ shopping: 2 });
     const moved = (await sync([], before)).body.items;
-    expect(moved.map((i) => [i.id, i.base, i.aisle])).toEqual([["w", "water", "home"], ["s", "stevia", "oils-sauces"]]);
+    expect(moved.map((i) => [i.id, i.base, i.aisle])).toEqual([
+      ["w", "water", "home"],
+      ["s", "stevia", "oils-sauces"],
+    ]);
     expect(moved.every((i) => i.updated_at > "2026-11-09T10:00:00.000Z")).toBe(true);
     expect((await call("/catalogue/backfill", { ...token, method: "PUT" })).body).toMatchObject({ shopping: 0 });
     expect(sentToClaude).toHaveLength(0);
@@ -314,9 +355,20 @@ describe("correction concurrency regressions", () => {
     expect(place("white wine")).toEqual(["white wine", "drinks"]);
     for (const item of ["matcha", "matcha powder"]) expect(place(item), item).toEqual(["matcha powder", "baking"]);
     expect(place("chicken or vegetable stock")).toEqual(["chicken stock", "spices"]);
-    for (const [item, base] of [["ice-cold water", "water"], ["just-off-boil water", "water"], ["cold filtered water", "water"], ["whole milk", "milk"],
-      ["unsweetened Greek yogurt", "greek yogurt"], ["light soy sauce", "soy sauce"], ["light brown sugar", "brown sugar"], ["shiitake mushrooms", "mushroom"],
-      ["baby potatoes", "potato"], ["canned coconut milk", "coconut milk"], ["parchment paper", "baking paper"], ["tamari", "soy sauce"]] as const)
+    for (const [item, base] of [
+      ["ice-cold water", "water"],
+      ["just-off-boil water", "water"],
+      ["cold filtered water", "water"],
+      ["whole milk", "milk"],
+      ["unsweetened Greek yogurt", "greek yogurt"],
+      ["light soy sauce", "soy sauce"],
+      ["light brown sugar", "brown sugar"],
+      ["shiitake mushrooms", "mushroom"],
+      ["baby potatoes", "potato"],
+      ["canned coconut milk", "coconut milk"],
+      ["parchment paper", "baking paper"],
+      ["tamari", "soy sauce"],
+    ] as const)
       expect(place(item)[0], item).toBe(base);
     expect(place("butter or margarine")).toEqual(["butter", "dairy"]);
   });

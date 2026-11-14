@@ -6,7 +6,16 @@ const T2 = "2026-11-11T10:00:00.000Z";
 
 describe("recipesToCache", () => {
   it("fetches list recipes this device has not cached, once each", () => {
-    expect(recipesToCache(["a", "b", "a"], new Map([["b", T1]]), new Map([["a", T1], ["b", T1]]))).toEqual(["a"]);
+    expect(
+      recipesToCache(
+        ["a", "b", "a"],
+        new Map([["b", T1]]),
+        new Map([
+          ["a", T1],
+          ["b", T1],
+        ]),
+      ),
+    ).toEqual(["a"]);
   });
 
   it("refetches a cached recipe the library list shows in a newer version", () => {

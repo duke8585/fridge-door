@@ -4,7 +4,7 @@
  * runtime-specific imports so both tsconfigs can include it.
  */
 import { z } from "zod";
-import { AISLE_IDS, completeAisleOrder, type AisleOrder } from "./catalogue";
+import { AISLE_IDS, type AisleOrder, completeAisleOrder } from "./catalogue";
 import { METRIC_UNITS, USERS } from "./constants";
 import { tagProblem, upgradeTag } from "./tags";
 
@@ -82,7 +82,11 @@ export const TagDeltaSchema = z.object({
 /** Minutes. Overnight soaking counts, hence up to a week. `active_min` is hands-on time. */
 export const TimeSchema = z
   .object({
-    total_min: z.number().int("Whole minutes").positive("Must be > 0").max(7 * 24 * 60, "Too long"),
+    total_min: z
+      .number()
+      .int("Whole minutes")
+      .positive("Must be > 0")
+      .max(7 * 24 * 60, "Too long"),
     active_min: z.number().int("Whole minutes").positive("Must be > 0").optional(),
   })
   .refine((t) => t.active_min === undefined || t.active_min <= t.total_min, {
@@ -170,8 +174,13 @@ export const ImportRecordSchema = z.object({
   source_ref: z.string().regex(/^[a-z]+:[A-Za-z0-9_-]{1,64}(:[1-9][0-9]{0,2})?$/, "Expected <system>:<id> or <system>:<id>:<part>"),
   status: z.enum(["full", "stub"]),
   section: z.string().nullable(),
-  cover: z.string().regex(/^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(jpe?g|png|webp)$/i, "Expected <gid>/<file>.<jpg|png|webp>").nullable(),
-  cover_focus: CoverFocusSchema.nullable().transform((f) => f ?? undefined).optional(),
+  cover: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(jpe?g|png|webp)$/i, "Expected <gid>/<file>.<jpg|png|webp>")
+    .nullable(),
+  cover_focus: CoverFocusSchema.nullable()
+    .transform((f) => f ?? undefined)
+    .optional(),
   ratings: z.array(z.object({ user: UserSchema, stars: StarsSchema })).max(USERS.length),
   comments: z.array(z.object({ user: UserSchema, body_md: z.string().trim().min(1).max(5000), created_at: z.iso.datetime() })).max(200),
   recipe: RecipeInputSchema.extend({ time: TimeSchema }),

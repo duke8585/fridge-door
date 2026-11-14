@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { DuplicateCandidate } from "../../shared/duplicates";
-import { type AiUnavailable, type UrlImportDraft, type UrlImportError, type UrlImportStatus } from "../../shared/urlImport";
-import { api, ApiError, AuthError, loginHref, NetworkError } from "../lib/api";
+import type { AiUnavailable, UrlImportDraft, UrlImportError, UrlImportStatus } from "../../shared/urlImport";
+import { ApiError, AuthError, api, loginHref, NetworkError } from "../lib/api";
 import { Link, navigate } from "../lib/router";
 import { stashImport } from "../store/importDraft";
 
@@ -161,8 +161,8 @@ export function ImportPage() {
         </p>
       )}
       <p className="muted small">
-        The page is read on the server and turned into a draft in the recipe editor. Nothing is saved until you press Save there. Instagram, TikTok and
-        YouTube links become stubs unless you paste the recipe into the notes.
+        The page is read on the server and turned into a draft in the recipe editor. Nothing is saved until you press Save there. Instagram, TikTok and YouTube
+        links become stubs unless you paste the recipe into the notes.
       </p>
     </main>
   );

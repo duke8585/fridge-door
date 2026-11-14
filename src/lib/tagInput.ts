@@ -1,5 +1,5 @@
 /** Pure logic behind the tag combobox (editor and recipe page): normalization, suggestions, key handling. */
-import { fixedTags, isFixedGroup, isTagGroup, TAG_GROUP_NAMES, renameLegacyTag, tagProblem, type TagGroup } from "../../shared/tags";
+import { fixedTags, isFixedGroup, isTagGroup, renameLegacyTag, TAG_GROUP_NAMES, type TagGroup, tagProblem } from "../../shared/tags";
 
 export const MAX_SUGGESTIONS = 8;
 
@@ -73,7 +73,12 @@ export function tagOptions(query: string, counts: ReadonlyMap<string, number>, s
   const fresh = (tag: string): boolean => value !== "" && !all.has(tag) && !selected.includes(tag) && tagProblem(tag) === null;
   if (group !== undefined) return isFixedGroup(group) || !fresh(q) ? out : [...out, { kind: "new", tag: q }];
   if ([...all.keys()].some((t) => valueOf(t) === value)) return out;
-  return [...out, ...FREE_GROUPS.map((g) => `${g}:${value}`).filter(fresh).map((tag): TagOption => ({ kind: "new", tag }))];
+  return [
+    ...out,
+    ...FREE_GROUPS.map((g) => `${g}:${value}`)
+      .filter(fresh)
+      .map((tag): TagOption => ({ kind: "new", tag })),
+  ];
 }
 
 /**
@@ -93,10 +98,7 @@ export function resolveTyped(text: string, counts: ReadonlyMap<string, number>):
 
 /** active is -1 when nothing is highlighted (the list opened on focus, before any typing or arrow key). */
 export type TagKeyState = { text: string; options: readonly TagOption[]; active: number; open: boolean; resolved: string | undefined };
-export type TagKeyAction =
-  | { type: "move"; active: number }
-  | { type: "pick"; tag: string }
-  | { type: "close" };
+export type TagKeyAction = { type: "move"; active: number } | { type: "pick"; tag: string } | { type: "close" };
 
 /**
  * What a key in the tag input does. undefined = let the browser handle it.
@@ -136,7 +138,11 @@ export function tagKey(key: string, s: TagKeyState): TagKeyAction | undefined {
  * part is resolved; the first part that needs a group stays in the input so its suggestions show.
  * undefined = no comma, keep typing.
  */
-export function splitTyped(value: string, highlighted: TagOption | undefined, counts: ReadonlyMap<string, number>): { picks: string[]; text: string } | undefined {
+export function splitTyped(
+  value: string,
+  highlighted: TagOption | undefined,
+  counts: ReadonlyMap<string, number>,
+): { picks: string[]; text: string } | undefined {
   if (!value.includes(",")) return undefined;
   const parts = value.split(",");
   const rest = parts.pop()!;

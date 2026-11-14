@@ -1,13 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import Anthropic from "@anthropic-ai/sdk";
-import worker from "../../worker/index";
-import * as repo from "../../worker/repo";
-import { classifyOutage } from "../../worker/ai";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RecipeInput, User } from "../../shared/schema";
 import type { UrlImportDraft, UrlImportStatus } from "../../shared/urlImport";
-import { TEST_ORIGIN, TEST_SECRET, authedRequest, fakeD1, fakeR2, oauthBindings, type AuthedInit, type StoredObject } from "./fakes";
+import { classifyOutage } from "../../worker/ai";
+import worker from "../../worker/index";
+import * as repo from "../../worker/repo";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_ORIGIN, TEST_SECRET } from "./fakes";
 
 let env: Record<string, unknown>;
 let sqlite: DatabaseSync;
@@ -58,12 +58,16 @@ beforeEach(() => {
   });
 });
 
-const html = (body: string, headers: Record<string, string> = {}): Response => new Response(body, { headers: { "content-type": "text/html; charset=utf-8", ...headers } });
+const html = (body: string, headers: Record<string, string> = {}): Response =>
+  new Response(body, { headers: { "content-type": "text/html; charset=utf-8", ...headers } });
 
 const ldPage = (recipe: Record<string, unknown>): string =>
   `<html><head><meta property="og:image" content="https://img.example/dal.png"><script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
-    "@graph": [{ "@type": "WebPage", name: "Dal" }, { "@type": "Recipe", ...recipe }],
+    "@graph": [
+      { "@type": "WebPage", name: "Dal" },
+      { "@type": "Recipe", ...recipe },
+    ],
   })}</script></head><body><p>Lots of text</p></body></html>`;
 
 const DAL_LD = {
@@ -74,7 +78,14 @@ const DAL_LD = {
   recipeCuisine: "Indian",
   recipeIngredient: ["200 g red lentils", "2 cloves garlic, minced", "1 cup coconut milk", "salt to taste"],
   recipeInstructions: [
-    { "@type": "HowToSection", name: "Dal", itemListElement: [{ "@type": "HowToStep", text: "Rinse the lentils." }, { "@type": "HowToStep", text: "Simmer 20 min." }] },
+    {
+      "@type": "HowToSection",
+      name: "Dal",
+      itemListElement: [
+        { "@type": "HowToStep", text: "Rinse the lentils." },
+        { "@type": "HowToStep", text: "Simmer 20 min." },
+      ],
+    },
     { "@type": "HowToSection", name: "Tadka", itemListElement: [{ "@type": "HowToStep", text: "Fry the garlic." }] },
   ],
 };
@@ -100,7 +111,10 @@ const goodRecipe = (over: Partial<RecipeInput> = {}): Omit<RecipeInput, "source_
 });
 
 let toolId = 0;
-function toolReply(input: unknown, usage = { input_tokens: 1800, output_tokens: 900, cache_read_input_tokens: 4200, cache_creation_input_tokens: 0 }): Response {
+function toolReply(
+  input: unknown,
+  usage = { input_tokens: 1800, output_tokens: 900, cache_read_input_tokens: 4200, cache_creation_input_tokens: 0 },
+): Response {
   return Response.json({
     id: `msg_${++toolId}`,
     type: "message",
@@ -130,7 +144,13 @@ describe("POST /api/import-url", () => {
     const { status, data } = await importUrl({ url: "https://cook.example/dal?utm_source=x&id=7#comments", notes: "we use less salt" });
     expect(status).toBe(200);
     const draft = data as UrlImportDraft;
-    expect(draft).toMatchObject({ extraction: "json-ld", problems: [], cover_url: "https://img.example/dal.png", ai_unavailable: null, review_notes: ["cups converted to ml: coconut milk"] });
+    expect(draft).toMatchObject({
+      extraction: "json-ld",
+      problems: [],
+      cover_url: "https://img.example/dal.png",
+      ai_unavailable: null,
+      review_notes: ["cups converted to ml: coconut milk"],
+    });
     expect(draft.recipe.source_url).toBe("https://cook.example/dal?id=7");
     expect(fetched).toEqual(["https://cook.example/dal?id=7"]);
 
@@ -209,7 +229,12 @@ describe("POST /api/import-url", () => {
   });
 
   it("short-circuits a link that was imported before, unless forced", async () => {
-    await repo.upsertRecipe(env.DB as D1Database, "dal", { ...goodRecipe(), source_url: "https://www.cook.example/dal/" }, { author: "max", source: "editor", now: new Date().toISOString() });
+    await repo.upsertRecipe(
+      env.DB as D1Database,
+      "dal",
+      { ...goodRecipe(), source_url: "https://www.cook.example/dal/" },
+      { author: "max", source: "editor", now: new Date().toISOString() },
+    );
     const first = await importUrl({ url: "http://cook.example/dal?utm_campaign=x" });
     expect(first.status).toBe(409);
     expect(first.data).toMatchObject({ error: "duplicate", candidates: [{ id: "dal", reason: "same source_url" }] });
@@ -284,7 +309,12 @@ describe("POST /api/import-url", () => {
     expect(sentToClaude).toHaveLength(0);
     expect(data).toMatchObject({ extraction: "json-ld", ai_unavailable: "not_configured", cover_url: "https://img.example/dal.png" });
     expect(data.review_notes).toEqual(["imported without AI: check units and translation"]);
-    expect(data.recipe).toMatchObject({ title: "Red Lentil Dal", yield: { amount: 4, unit: "servings" }, time: { total_min: 45 }, tags: ["course:main", "cuisine:indian"] });
+    expect(data.recipe).toMatchObject({
+      title: "Red Lentil Dal",
+      yield: { amount: 4, unit: "servings" },
+      time: { total_min: 45 },
+      tags: ["course:main", "cuisine:indian"],
+    });
     expect(data.recipe.sections[0].ingredients).toEqual([
       { qty: 200, unit: "g", item: "red lentils" },
       { qty: 2, unit: "clove", item: "garlic", prep: "minced" },
@@ -301,7 +331,13 @@ describe("POST /api/import-url", () => {
   it("on a credits error, remembers the outage for an hour and fills drafts without AI", async () => {
     pages.set("https://cook.example/dal", () => html(ldPage(DAL_LD)));
     pages.set("https://blog.example/text", () => html(`<article><p>${"Stir the pot slowly. ".repeat(40)}</p></article>`));
-    claude.push(apiError(400, "invalid_request_error", "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."));
+    claude.push(
+      apiError(
+        400,
+        "invalid_request_error",
+        "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      ),
+    );
     const first = await importUrl({ url: "https://cook.example/dal" });
     expect(first.status).toBe(200);
     expect(first.data).toMatchObject({ extraction: "json-ld", ai_unavailable: "credits_exhausted" });
@@ -362,7 +398,11 @@ describe("POST /api/import-url/save", () => {
 
   it("creates through the ingest path: url-import revision, Import notes comment, cover from the candidate", async () => {
     pages.set("https://img.example/dal.png", () => new Response(png, { headers: { "content-type": "image/png" } }));
-    const res = await post("/api/import-url/save", { recipe: draft(), review_notes: ["time estimated"], confirm_duplicate: false, cover_url: "https://img.example/dal.png" }, "nadine");
+    const res = await post(
+      "/api/import-url/save",
+      { recipe: draft(), review_notes: ["time estimated"], confirm_duplicate: false, cover_url: "https://img.example/dal.png" },
+      "nadine",
+    );
     expect(res.status).toBe(201);
     const data = (await res.json()) as any;
     expect(data.recipe).toMatchObject({ id: "red-lentil-dal", tags: ["course:main", "cuisine:indian", "method:one-pot"] });
@@ -373,7 +413,12 @@ describe("POST /api/import-url/save", () => {
   });
 
   it("saves the recipe even when the cover fails, and reports it", async () => {
-    const res = await post("/api/import-url/save", { recipe: draft(), review_notes: [], confirm_duplicate: false, cover_url: "https://img.example/missing.png" });
+    const res = await post("/api/import-url/save", {
+      recipe: draft(),
+      review_notes: [],
+      confirm_duplicate: false,
+      cover_url: "https://img.example/missing.png",
+    });
     expect(res.status).toBe(201);
     const data = (await res.json()) as any;
     expect(data.cover_error).toContain("HTTP 404");

@@ -1,4 +1,4 @@
-import { type AnchorHTMLAttributes, type MouseEvent } from "react";
+import type { AnchorHTMLAttributes, MouseEvent } from "react";
 import { signal, useSignal } from "./signal";
 
 /** ~30-line history router: enough for 5 routes, no dependency. */

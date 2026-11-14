@@ -1,12 +1,12 @@
-import { newId } from "../lib/id";
 import type { Comment, CoverFocus, Rating, RecipeDetail, RecipeSummary, Stars, User } from "../../shared/schema";
-import { api, ApiError, AuthError, NetworkError } from "../lib/api";
-import { signal, type Signal } from "../lib/signal";
-import { db, kvGet, kvSet } from "./idb";
 import { upgradeTags } from "../../shared/tags";
-import { applyOp, applyOpToSummary, opRecipeId, type OutboxOp } from "./ops";
-import { allOps, enqueue } from "./outbox";
+import { ApiError, AuthError, api, NetworkError } from "../lib/api";
+import { newId } from "../lib/id";
 import { recipesToCache } from "../lib/offlineRecipes";
+import { type Signal, signal } from "../lib/signal";
+import { db, kvGet, kvSet } from "./idb";
+import { applyOp, applyOpToSummary, type OutboxOp, opRecipeId } from "./ops";
+import { allOps, enqueue } from "./outbox";
 
 // ---------- list ----------
 export const summaries = signal<RecipeSummary[] | undefined>(undefined);
@@ -75,7 +75,10 @@ export async function loadRecipe(id: string): Promise<void> {
   const s = detailSignal(id);
   if (!s.get().detail) {
     const cached = await (await db()).get("recipes", id);
-    if (cached) s.set({ detail: await withPending({ ...cached, recipe: { ...cached.recipe, tags: upgradeTags(cached.recipe.tags), bookmarks: cached.recipe.bookmarks ?? [] } }) });
+    if (cached)
+      s.set({
+        detail: await withPending({ ...cached, recipe: { ...cached.recipe, tags: upgradeTags(cached.recipe.tags), bookmarks: cached.recipe.bookmarks ?? [] } }),
+      });
   }
   await refreshRecipe(id);
 }

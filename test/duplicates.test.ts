@@ -4,7 +4,11 @@ import { findDuplicates, normalizeSourceUrl, titleSimilarity } from "../shared/d
 describe("normalizeSourceUrl", () => {
   it("ignores scheme, www, host case, trailing slash and tracking parameters", () => {
     const want = "instagram.com/reel/abc?x=1";
-    for (const u of ["https://www.instagram.com/reel/abc/?x=1&igsh=zz", "http://Instagram.com/reel/abc?utm_source=ig&x=1", "https://instagram.com/reel/abc?x=1&si=1"]) {
+    for (const u of [
+      "https://www.instagram.com/reel/abc/?x=1&igsh=zz",
+      "http://Instagram.com/reel/abc?utm_source=ig&x=1",
+      "https://instagram.com/reel/abc?x=1&si=1",
+    ]) {
       expect(normalizeSourceUrl(u)).toBe(want);
     }
     expect(normalizeSourceUrl("https://example.com/a")).not.toBe(normalizeSourceUrl("https://example.com/b"));

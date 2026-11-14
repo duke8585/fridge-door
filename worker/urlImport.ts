@@ -13,12 +13,12 @@ import type { AiUnavailable, UrlImportDraft, UrlImportError, UrlImportSaved, Url
 import { aiState, noteOutage } from "./ai";
 import type { Env } from "./app";
 import { storeCover } from "./covers";
-import { extractPage, str, type Extraction, type PageMeta } from "./extract";
-import { DraftSchema, draftProblems, ingestRecipe, type Draft } from "./ingest";
+import { type Extraction, extractPage, type PageMeta, str } from "./extract";
+import { type Draft, DraftSchema, draftProblems, ingestRecipe } from "./ingest";
 import { ldDraft } from "./ldDraft";
 import { fetchCoverImage } from "./mcp";
 import { checkTarget, fetchPage } from "./pageFetch";
-import { draftRecipe, IMPORT_MODEL, type ContentKind } from "./recipeLlm";
+import { type ContentKind, draftRecipe, IMPORT_MODEL } from "./recipeLlm";
 import * as repo from "./repo";
 
 type Ctx = Context<Env>;
@@ -70,7 +70,11 @@ export async function importFromUrl(c: Ctx): Promise<Response> {
   const recent = await repo.urlImportsSince(c.env.DB, user, new Date(now.getTime() - HOUR_MS).toISOString());
   if (recent.count >= IMPORTS_PER_HOUR) {
     const retry = recent.oldest ? Math.max(1, Math.ceil((Date.parse(recent.oldest) + HOUR_MS - now.getTime()) / 1000)) : 3600;
-    return errorJson(c, { error: "rate_limited", message: `At most ${IMPORTS_PER_HOUR} imports per hour. Try again in ${Math.ceil(retry / 60)} min.`, retry_after_s: retry }, 429);
+    return errorJson(
+      c,
+      { error: "rate_limited", message: `At most ${IMPORTS_PER_HOUR} imports per hour. Try again in ${Math.ceil(retry / 60)} min.`, retry_after_s: retry },
+      429,
+    );
   }
 
   const sourceUrl = stripTracking(target.url.href);
@@ -119,7 +123,14 @@ export async function importFromUrl(c: Ctx): Promise<Response> {
     result = await draftRecipe(client, { sourceUrl, kind, content, title: meta.title, notes });
   } catch (e) {
     const outage = await noteOutage(c.env, e, now);
-    console.error(JSON.stringify({ event: "url_import_model_error", outage, status: e instanceof Anthropic.APIError ? e.status : null, type: e instanceof Anthropic.APIError ? e.type : null }));
+    console.error(
+      JSON.stringify({
+        event: "url_import_model_error",
+        outage,
+        status: e instanceof Anthropic.APIError ? e.status : null,
+        type: e instanceof Anthropic.APIError ? e.type : null,
+      }),
+    );
     if (outage) return withoutAi(outage);
     const why = e instanceof Anthropic.RateLimitError ? "the model is busy" : e instanceof Anthropic.APIError ? `HTTP ${e.status ?? "error"}` : "no answer";
     return errorJson(c, { error: "model_failed", message: `The model could not write the draft (${why}). Try again in a minute.` }, 502);
@@ -150,7 +161,14 @@ function draftResponse(
 /** The contract's stub, built without a model: nothing on the page to normalize, so nothing to invent. */
 export function stubDraft(sourceUrl: string, meta: PageMeta, notes: string | undefined, why: string[]): Draft {
   return {
-    recipe: { title: cleanTitle(meta.title, sourceUrl), sections: [{ ingredients: [] }], steps_md: "", notes_md: notes?.trim() ?? "", tags: [], source_url: sourceUrl },
+    recipe: {
+      title: cleanTitle(meta.title, sourceUrl),
+      sections: [{ ingredients: [] }],
+      steps_md: "",
+      notes_md: notes?.trim() ?? "",
+      tags: [],
+      source_url: sourceUrl,
+    },
     review_notes: ["stub", ...why],
   };
 }

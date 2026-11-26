@@ -72,7 +72,9 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   page into a draft in the editor. Without an API key, pages with schema.org Recipe data are still
   mapped field by field.
 - **MCP server** at `/mcp`, so Claude (claude.ai connectors, Claude Code) can search, read, create
-  and edit recipes as one of the users.
+  and edit recipes as one of the users. It archives by tag (`set_tags` with `status:archived`), and
+  `search_recipes` leaves archived recipes out unless asked. `update_recipe` rewrites the content
+  but keeps a recipe's `list:`, `status:archived` and `todo:correction` tags.
 - **Appearance** with a header light/dark switch. The app follows your system until you choose
   a theme, then remembers that choice on the device. The header also links to the GitHub repository.
 - **Login** with Google or GitHub, limited to an allowlist.

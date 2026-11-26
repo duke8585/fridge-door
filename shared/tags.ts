@@ -53,6 +53,17 @@ export const NEEDS_METHOD_TAG = "todo:method";
 export const ARCHIVED_TAG = "status:archived";
 export const isArchived = (tags: readonly string[]): boolean => tags.includes(ARCHIVED_TAG);
 
+/**
+ * The stored tags a full rewrite of the content (MCP update_recipe) carries over: those of the
+ * groups the content writer may not set (list:*, status:archived, todo:correction), so leaving them
+ * out does not unarchive or unlist. status:stub and todo:method are derived again on every save.
+ */
+export const keptOnRewrite = (tags: readonly string[]): string[] =>
+  tags.filter((t) => {
+    const group = parseTag(t)?.group;
+    return group !== undefined && !TAG_GROUPS[group].content && t !== STUB_TAG && t !== NEEDS_METHOD_TAG;
+  });
+
 export const groupValues = (g: TagGroup): readonly string[] => spec(g).values ?? [];
 export const isFixedGroup = (g: TagGroup): boolean => spec(g).values !== undefined;
 export const isTagGroup = (g: string): g is TagGroup => Object.hasOwn(TAG_GROUPS, g);

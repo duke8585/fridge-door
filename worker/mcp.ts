@@ -11,7 +11,18 @@ import { recipeToMarkdown, scaleSections } from "../shared/recipeMarkdown";
 import { type Bookmark, type Comment, CoverFocusSchema, MAX_TAGS, type Rating, RecipeInputSchema, StarsSchema, TagSchema, type User } from "../shared/schema";
 import { queryTerms, searchRank } from "../shared/search";
 import { ingredientsToShopping } from "../shared/shopping";
-import { applyTagDelta, overMax, renameLegacyTag, STUB_TAG, TAG_GROUP_NAMES, TAG_GROUPS, tagProblem } from "../shared/tags";
+import {
+  ARCHIVED_TAG,
+  applyTagDelta,
+  isArchived,
+  keptOnRewrite,
+  overMax,
+  renameLegacyTag,
+  STUB_TAG,
+  TAG_GROUP_NAMES,
+  TAG_GROUPS,
+  tagProblem,
+} from "../shared/tags";
 import { backfillBases, placeShopping, resolveRecipe } from "./catalogue";
 import { generateCoverLater } from "./coverGen";
 import { storeCover } from "./covers";
@@ -60,7 +71,7 @@ function serverInstructions(user: User): string {
     "update_recipe replaces the whole recipe: start from get_recipe and pass its updated_at as expected_updated_at.",
     "Every ingredient item is mapped to a canonical base and an aisle on save. Write items as the style guide says; lookup_ingredients shows what an item resolves to, set_ingredient corrects the catalogue when the user asks.",
     "set_bookmark saves or unsaves a recipe for you; search_recipes with bookmarked: true lists only yours, and get_recipe and search_recipes show bookmarked_by.",
-    "There is no delete.",
+    `To archive a recipe, set_tags add ${ARCHIVED_TAG}: it disappears from the app's list for everyone but keeps everything; remove the tag to unarchive. search_recipes leaves archived recipes out unless include_archived. There is no delete.`,
   ].join("\n");
 }
 
@@ -74,7 +85,8 @@ The contract below was written for the Asana import. Through MCP:
 - Every tag is group:value (see "Tags" below). In create_recipe and update_recipe you set only the
   groups the guide lets you set (course, cuisine, method, diet, collection). The server adds
   status:stub when review_notes has "stub", and todo:method to a non-stub without steps (removed
-  once steps exist). update_recipe keeps the list:, status: and todo: tags the recipe has.
+  once steps exist). update_recipe keeps the recipe's list:, status:archived and todo:correction
+  tags even when you leave them out; change those with set_tags.
 - When the user asks for it, set_tags adds any valid tag as them, e.g. list:next-up or
   todo:correction. Free groups (list, collection, from) take new values; reuse a value from
   "Tags in use now" where one fits.
@@ -185,16 +197,18 @@ export function createFridgeServer({ env, user, origin, waitUntil }: McpContext)
         tags: z.array(TagSchema).max(10).optional().describe("Full group:value tags; all must match"),
         max_total_min: z.number().int().positive().optional(),
         include_stubs: z.boolean().default(false).describe(`Include recipes tagged ${STUB_TAG}`),
+        include_archived: z.boolean().default(false).describe(`Include recipes tagged ${ARCHIVED_TAG} (hidden from the app's list)`),
         bookmarked: z.boolean().optional().describe("true: only recipes you bookmarked"),
         limit: z.number().int().min(1).max(100).default(20),
       }),
       annotations: READ,
     },
-    async ({ query, tags = [], max_total_min, include_stubs, bookmarked, limit }) => {
+    async ({ query, tags = [], max_total_min, include_stubs, include_archived, bookmarked, limit }) => {
       const words = queryTerms(query ?? "", buildCatalogue(await repo.loadCatalogue(db)));
       const matches = (await repo.recipeIndex(db))
         .filter((r) => {
           if (!include_stubs && r.tags.includes(STUB_TAG)) return false;
+          if (!include_archived && isArchived(r.tags)) return false;
           if (!tags.every((t) => r.tags.includes(t))) return false;
           if (bookmarked && !r.bookmarks.some((b) => b.user === user)) return false;
           return max_total_min === undefined || (r.total_min !== undefined && r.total_min <= max_total_min);
@@ -284,7 +298,8 @@ export function createFridgeServer({ env, user, origin, waitUntil }: McpContext)
   server.registerTool(
     "update_recipe",
     {
-      description: "Replace a recipe's content with a full recipe (same rules as create_recipe). expected_updated_at must equal the current updated_at.",
+      description:
+        "Replace a recipe's content with a full recipe (same rules as create_recipe). expected_updated_at must equal the current updated_at. The recipe's list:, status:archived and todo:correction tags stay even when left out; set_tags changes them.",
       inputSchema: z.object({
         id: IdSchema,
         recipe: RecipeInputSchema,
@@ -301,7 +316,8 @@ export function createFridgeServer({ env, user, origin, waitUntil }: McpContext)
           current_updated_at: updatedAt,
         });
       if (current.updated_at !== expected_updated_at) return conflict(current.updated_at);
-      const draft = { recipe, review_notes: review_notes ?? [] };
+      const tags = [...new Set([...recipe.tags, ...keptOnRewrite(current.tags)])];
+      const draft = { recipe: { ...recipe, tags }, review_notes: review_notes ?? [] };
       const problems = draftProblems(draft, current.tags);
       if (problems.length) return lintFailure("update_recipe", problems);
       if (!(await repo.upsertRecipe(db, id, await resolveRecipe(env, withServerTags(draft)), change(), expected_updated_at))) {

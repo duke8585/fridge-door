@@ -461,6 +461,26 @@ describe("MCP tools", () => {
     ]);
   });
 
+  it("update_recipe keeps the owner tags the model leaves out; status:stub and todo:method are recomputed", async () => {
+    const token = await connect("alice");
+    const created = await tool(token, "create_recipe", { recipe: dal({ steps_md: "" }) });
+    expect(created.data.tags).toContain("todo:method");
+    const tagged = await tool(token, "set_tags", { id: created.data.id, add: ["status:archived", "list:next-up", "todo:correction"] });
+    const current = await tool(token, "get_recipe", { id: created.data.id });
+    const ok = await tool(token, "update_recipe", { id: created.data.id, recipe: dal(), expected_updated_at: current.data.recipe.updated_at });
+    expect(tagged.isError).toBeFalsy();
+    expect(ok.isError).toBeFalsy();
+    expect(ok.data.tags).toEqual(["course:main", "cuisine:indian", "method:one-pot", "status:archived", "list:next-up", "todo:correction"]);
+  });
+
+  it("search_recipes leaves archived recipes out unless include_archived", async () => {
+    const token = await connect("alice");
+    const created = await tool(token, "create_recipe", { recipe: dal() });
+    await tool(token, "set_tags", { id: created.data.id, add: ["status:archived"] });
+    expect((await tool(token, "search_recipes", { query: "dal" })).data.total).toBe(0);
+    expect((await tool(token, "search_recipes", { query: "dal", include_archived: true })).data.results[0].id).toBe(created.data.id);
+  });
+
   it("the guarded write itself refuses a row that changed after the check", async () => {
     const token = await connect("alice");
     const created = await tool(token, "create_recipe", { recipe: dal() });

@@ -17,7 +17,14 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
 - **Recipes** with structured ingredients in sections, ranges ("2-3 cloves"), markdown steps and
   notes, yield, total and active time, source link and a cover image with a chosen focal point.
 - **Scaling** by servings or by factor, with per-unit rounding and g/ml promoted to kg/l.
-- **Cooking mode**: bigger text, screen kept awake, tap to tick off steps and ingredients.
+- **Cooking mode**: bigger text, screen kept awake, tap to tick off steps and ingredients. Steps
+  always show the amount of each ingredient they name, at the current scale, right after the word.
+- **Amounts in steps**: the steps never state amounts; the app finds the ingredients a step names
+  from the recipe's own list. Reading a recipe, a dotted underline marks an ingredient (tap it for
+  its amount), a dashed one a section ("the sauce", tap for the section's list) and a wavy one a
+  word that fits two lines ("a or b"). "The rest of the butter" shows "of 113 g". Ingredients
+  without an amount (salt to taste) are not marked. Nothing is stored. MCP and link imports are
+  rejected unless every ingredient with an amount is named in some step and no step states one.
 - **Ratings and comments** per person, markdown comments with preview.
 - **Bookmarks** per person: tap the bookmark on a card or a recipe. The bookmark tab next to the tag
   groups narrows the list to yours, with search and filters on top. Bookmarked recipes open offline, and an import offers to

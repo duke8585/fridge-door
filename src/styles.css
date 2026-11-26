@@ -856,6 +856,54 @@ button:disabled {
   text-decoration: line-through;
 }
 
+/* ingredient amounts inside steps */
+.md .ing,
+.md .sec,
+.md .amb {
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.md .ing {
+  text-decoration-style: dotted;
+}
+.md .sec {
+  text-decoration-style: dashed;
+}
+.md .amb {
+  text-decoration-style: wavy;
+}
+.cooking .md .ing,
+.cooking .md .sec,
+.cooking .md .amb {
+  text-decoration: none;
+  cursor: inherit;
+}
+.md .amt {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.step-sec {
+  list-style: none;
+  margin: 0.3rem 0 0.2rem;
+  padding: 0.3rem 0.6rem;
+  border-left: 3px solid var(--accent-soft);
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.step-sec li {
+  margin: 0.1rem 0;
+}
+
 /* shopping */
 .shopping {
   display: grid;

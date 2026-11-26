@@ -3,6 +3,8 @@
  * scripts/check-import.ts (LLM normalizer output) and the MCP create/update tools.
  */
 import type { RecipeInput } from "./schema";
+import { linkSteps, namedLines, statedAmounts } from "./stepLinks";
+import { splitSteps } from "./steps";
 import { groupCountProblems, NEEDS_METHOD_TAG, parseTag, STUB_TAG, TAG_GROUPS, tagProblem } from "./tags";
 
 /** A recipe plus the normalizer's review flags. "stub" and "no source" in `review` carry meaning. */
@@ -44,7 +46,25 @@ export function lintRecipe(d: RecipeDraft, allowedTags: ReadonlySet<string> = ne
   if (!stub) {
     if (ings.length === 0) out.push("no ingredients but not flagged stub");
     if (recipe.steps_md.trim() && !/^1\. /m.test(recipe.steps_md)) out.push("steps_md is not a numbered list");
+    if (recipe.steps_md.trim()) out.push(...stepProblems(recipe));
   }
+  return out;
+}
+
+/** Steps name every ingredient they use and state no amounts: the app shows the amounts next to the names. */
+function stepProblems({ sections, steps_md }: RecipeInput): string[] {
+  const steps = splitSteps(steps_md);
+  const spans = linkSteps(sections, steps);
+  const out: string[] = [];
+  steps.forEach((step, i) => {
+    const amounts = statedAmounts(sections, step);
+    if (amounts.length) out.push(`step ${i + 1} states an amount ("${amounts[0]}"): amounts live only in the ingredient list, name the ingredient instead`);
+  });
+  const named = namedLines(sections, spans.flat());
+  const lines = sections.flatMap((s) => s.ingredients);
+  lines.forEach((l, n) => {
+    if (l.qty !== undefined && !named.has(n)) out.push(`no step names ingredient "${l.item}"${l.note ? ` (${l.note})` : ""}: name it in the step that uses it`);
+  });
   return out;
 }
 

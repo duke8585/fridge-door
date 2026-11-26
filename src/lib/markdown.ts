@@ -1,4 +1,4 @@
-import { Marked, type Tokens } from "marked";
+import { Marked } from "marked";
 
 const escape = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -32,13 +32,4 @@ export function renderMarkdownInline(src: string): string {
   return md.parseInline(src) as string;
 }
 
-/** Split steps markdown into individual steps (list items, else paragraphs) for cooking mode. */
-export function splitSteps(src: string): string[] {
-  const tokens = md.lexer(src);
-  const list = tokens.find((t): t is Tokens.List => t.type === "list");
-  if (list) return list.items.map((i) => i.text.trim());
-  return src
-    .split(/\n\s*\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+export { isStepList, splitSteps } from "../../shared/steps";

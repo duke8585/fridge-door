@@ -293,7 +293,7 @@ describe("MCP tools", () => {
       }),
     });
     expect(bad.isError).toBe(true);
-    expect(bad.text).toContain("Not saved: 7 problems");
+    expect(bad.text).toContain("Not saved: 8 problems");
     for (const p of [
       'tag "list:next-up": list tags are set by the server or the owners, not by the recipe writer',
       "needs 1-2 course tags, has 0",
@@ -302,6 +302,7 @@ describe("MCP tools", () => {
       "no qty and no note: salt",
       "steps_md is not a numbered list",
       "promo text in notes",
+      'no step names ingredient "lentils": name it in the step that uses it',
     ]) {
       expect(bad.text).toContain(`- ${p}`);
     }
@@ -548,6 +549,7 @@ describe("MCP ingredient catalogue", () => {
     const token = await connect("alice");
     const created = await tool(token, "create_recipe", {
       recipe: dal({
+        steps_md: "1. Slice the apples.",
         sections: [
           {
             ingredients: [
@@ -563,7 +565,7 @@ describe("MCP ingredient catalogue", () => {
     expect((await tool(token, "search_recipes", { query: "apples" })).data.results.map((r: { id: string }) => r.id)).toEqual([id]);
     const updated = await tool(token, "update_recipe", {
       id,
-      recipe: dal({ sections: [{ ingredients: [{ item: "pears", qty: 2, unit: "piece" }] }] }),
+      recipe: dal({ steps_md: "1. Slice the pears.", sections: [{ ingredients: [{ item: "pears", qty: 2, unit: "piece" }] }] }),
       expected_updated_at: created.data.updated_at,
     });
     expect(updated.isError).toBeFalsy();
@@ -573,7 +575,7 @@ describe("MCP ingredient catalogue", () => {
   it("lookup_ingredients explains a resolution; set_ingredient teaches the catalogue and re-resolves recipes", async () => {
     const token = await connect("bob");
     const created = await tool(token, "create_recipe", {
-      recipe: dal({ sections: [{ ingredients: [{ item: "Granny Smith apples", qty: 2, unit: "piece" }] }] }),
+      recipe: dal({ steps_md: "1. Slice the apples.", sections: [{ ingredients: [{ item: "Granny Smith apples", qty: 2, unit: "piece" }] }] }),
     });
     const look = await tool(token, "lookup_ingredients", { items: ["eggplants", "Granny Smith apples"] });
     expect(look.data.results).toEqual([

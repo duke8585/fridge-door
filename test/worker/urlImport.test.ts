@@ -7,7 +7,7 @@ import type { UrlImportDraft, UrlImportStatus } from "../../shared/urlImport";
 import { classifyOutage } from "../../worker/ai";
 import worker from "../../worker/index";
 import * as repo from "../../worker/repo";
-import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_ORIGIN, TEST_LOGINS, TEST_SECRET } from "./fakes";
+import { type AuthedInit, authedRequest, fakeD1, fakeR2, oauthBindings, type StoredObject, TEST_LOGINS, TEST_ORIGIN, TEST_SECRET } from "./fakes";
 
 let env: Record<string, unknown>;
 let sqlite: DatabaseSync;
@@ -104,7 +104,7 @@ const goodRecipe = (over: Partial<RecipeInput> = {}): Omit<RecipeInput, "source_
       ],
     },
   ],
-  steps_md: "1. Rinse the lentils.\n2. Simmer 20 min.\n3. Fry the garlic.",
+  steps_md: "1. Rinse the lentils.\n2. Simmer 20 min with the coconut milk.\n3. Fry the garlic.",
   notes_md: "",
   tags: ["course:main", "cuisine:indian", "method:one-pot"],
   ...over,

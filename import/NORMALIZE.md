@@ -41,6 +41,14 @@ The normalizer writes `import/llm/<gid>.json` with only `{ recipe, review }`.
   Put temperatures (°C, fan or conventional said explicitly when the source says it), times,
   and appliance settings (air fryer 180 °C 18 min, Instant Pot high pressure 1 min, natural release)
   inside the step that uses them.
+  Every amount lives in the ingredient list, never in a step: the app shows each ingredient's amount
+  next to its name in the step. So each step names every ingredient it uses by its ingredient-list
+  name ("Beat the butter and sugar"), or the section ("Mix the sauce ingredients" when a section is
+  titled "Sauce"), never "everything" or "all of it". A step has no ingredient amounts ("75 g",
+  "2 tbsp", "1 clove"); temperatures, times and pan sizes stay. An item used in separate steps
+  with separate amounts is one ingredient line per use, in the same or another section:
+  "2 tbsp olive oil (for searing)" and "2 tbsp olive oil (for the shallots)". Every ingredient
+  with an amount is named in some step.
 - Notes: tips, variations, serving suggestions, storage. Credit a person when the source does
   ("Via a colleague of Nakul."). No marketing text, no hashtags, no "link in bio".
 - Do not invent. If the source has no steps, leave `steps_md` empty and say so in `review`.

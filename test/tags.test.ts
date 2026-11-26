@@ -5,7 +5,7 @@ import type { RecipeInput } from "../shared/schema";
 import { onlyValidTags, overMax, renameLegacyTag, tagProblem, upgradeTag, upgradeTags } from "../shared/tags";
 import { facetCounts, filterGroups, matchesTagFilter } from "../src/lib/tagFilter";
 
-const recipe = (tags: string[], steps = "1. Mix."): RecipeInput => ({
+const recipe = (tags: string[], steps = "1. Cook the lentils."): RecipeInput => ({
   title: "Dal",
   sections: [{ ingredients: [{ item: "lentils", qty: 200, unit: "g" }] }],
   steps_md: steps,

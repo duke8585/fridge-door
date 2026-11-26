@@ -3,10 +3,13 @@ import { coverUrl, focusPosition } from "../../shared/cover";
 import { factorForYield, formatNumber, formatQty, scaleIngredient, spoonInMl } from "../../shared/scale";
 import type { Comment, Ingredient, Recipe } from "../../shared/schema";
 import { ingredientsToShopping, nextTimestamp, scaleLabel } from "../../shared/shopping";
+import { linkSteps } from "../../shared/stepLinks";
+import { isStepList } from "../../shared/steps";
 import { formatTime } from "../../shared/time";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { Markdown, splitSteps } from "../components/Markdown";
 import { StarsInput } from "../components/Stars";
+import { StepText } from "../components/StepText";
 import { TagInput, type TagValue } from "../components/TagInput";
 import { ago, formatDate } from "../lib/ago";
 import { loginHref } from "../lib/api";
@@ -15,6 +18,7 @@ import { Link } from "../lib/router";
 import { MAX_FACTOR, parseFactor, readScale, writeScale } from "../lib/scaleParams";
 import { recipeToText, type ShareResult, shareText } from "../lib/shareText";
 import { useSignal } from "../lib/signal";
+import { stepMarks } from "../lib/stepHtml";
 import { currentUser } from "../lib/user";
 import { catalogue } from "../store/catalogue";
 import { addTag, deleteComment, detailSignal, type LoadError, loadRecipe, putComment, rate, removeTag, setBookmark } from "../store/recipes";
@@ -139,6 +143,8 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
   const f = recipe.yield ? factorForYield(recipe.yield.amount, servings) : factor;
   const scaled = useMemo(() => recipe.sections.map((s) => ({ ...s, ingredients: s.ingredients.map((i) => scaleIngredient(i, f)) })), [recipe.sections, f]);
   const steps = useMemo(() => splitSteps(recipe.steps_md), [recipe.steps_md]);
+  const marks = useMemo(() => linkSteps(scaled, steps).map((spans) => stepMarks(spans, scaled)), [scaled, steps]);
+  const perStep = isStepList(recipe.steps_md) && marks.some((m) => m.length > 0);
   const mine = recipe.ratings.find((r) => r.user === user)?.stars;
   const bookmarked = recipe.bookmarks.some((b) => b.user === user);
   const savedBy = recipe.bookmarks.filter((b) => b.user !== user).map((b) => b.user);
@@ -273,10 +279,20 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
             <ol className="step-list">
               {steps.map((s, i) => (
                 <li key={i} className={done.has(i) ? "done" : ""} onClick={() => setDone(toggle(done, i))}>
-                  <Markdown src={s} inline />
+                  <StepText step={s} marks={marks[i]!} scaled={scaled} cooking />
                 </li>
               ))}
             </ol>
+          ) : perStep ? (
+            <div className="md">
+              <ol>
+                {steps.map((s, i) => (
+                  <li key={i}>
+                    <StepText step={s} marks={marks[i]!} scaled={scaled} cooking={false} />
+                  </li>
+                ))}
+              </ol>
+            </div>
           ) : (
             <Markdown src={recipe.steps_md} />
           )}

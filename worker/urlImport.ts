@@ -12,6 +12,7 @@ import { toFieldErrors, type ValidationErrorBody } from "../shared/schema";
 import type { AiUnavailable, UrlImportDraft, UrlImportError, UrlImportSaved, UrlImportStatus } from "../shared/urlImport";
 import { aiState, noteOutage } from "./ai";
 import type { Env } from "./app";
+import { generateCoverLater } from "./coverGen";
 import { storeCover } from "./covers";
 import { type Extraction, extractPage, type PageMeta, str } from "./extract";
 import { type Draft, DraftSchema, draftProblems, ingestRecipe } from "./ingest";
@@ -208,6 +209,7 @@ export async function saveImported(c: Ctx): Promise<Response> {
   }
   if (!result.ok) return errorJson(c, { error: "duplicate", message: "A recipe like this exists already.", candidates: result.candidates }, 409);
   const cover_error = cover_url ? await saveCover(c, result.id, cover_url, now) : undefined;
+  generateCoverLater((p) => c.executionCtx.waitUntil(p), c.env, result.id);
   const recipe = (await repo.getRecipe(c.env.DB, result.id))!;
   return c.json<UrlImportSaved>({ recipe, comments: await repo.listComments(c.env.DB, result.id), ...(cover_error && { cover_error }) }, 201);
 }
@@ -219,7 +221,7 @@ async function saveCover(c: Ctx, id: string, url: string, now: string): Promise<
   try {
     const image = await fetchCoverImage(target.url.href);
     if (!image.ok) return image.message;
-    await storeCover(c.env, id, null, { bytes: image.bytes, type: image.type, ext: image.ext, focus: null }, now);
+    await storeCover(c.env, id, null, { bytes: image.bytes, type: image.type, ext: image.ext, focus: null, ai: false }, now);
     return undefined;
   } catch (e) {
     return `Could not download the cover (${e instanceof Error ? e.message : String(e)}).`;

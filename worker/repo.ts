@@ -35,6 +35,7 @@ type RecipeRow = {
   cover_key: string | null;
   cover_focus_x: number | null;
   cover_focus_y: number | null;
+  cover_ai: number;
   created_at: string;
   updated_at: string;
 };
@@ -85,6 +86,7 @@ function rowToRecipe(r: RecipeRow, ratings: Rating[], bookmarks: Bookmark[]): Re
     time: rowToTime(r),
     cover_key: nn(r.cover_key),
     cover_focus: rowToFocus(r),
+    cover_ai: r.cover_ai === 1,
     source_ref: nn(r.source_ref),
     ratings,
     bookmarks,
@@ -114,7 +116,7 @@ function rowToShopping(r: ShoppingRow): ShoppingItem {
 export async function listRecipes(db: D1Database): Promise<RecipeSummary[]> {
   const [rec, bm] = await db.batch([
     db.prepare(
-      `SELECT r.id, r.title, r.tags_json, r.sections_json, r.notes_md, r.yield_amount, r.yield_unit, r.time_total_min, r.time_active_min, r.cover_key, r.cover_focus_x, r.cover_focus_y, r.created_at, r.updated_at,
+      `SELECT r.id, r.title, r.tags_json, r.sections_json, r.notes_md, r.yield_amount, r.yield_unit, r.time_total_min, r.time_active_min, r.cover_key, r.cover_focus_x, r.cover_focus_y, r.cover_ai, r.created_at, r.updated_at,
               AVG(g.stars) AS avg_rating, COUNT(g.stars) AS rating_count
          FROM recipes r LEFT JOIN ratings g ON g.recipe_id = r.id
         GROUP BY r.id ORDER BY r.title COLLATE NOCASE`,
@@ -133,6 +135,7 @@ export async function listRecipes(db: D1Database): Promise<RecipeSummary[]> {
     time: rowToTime(r),
     cover_key: nn(r.cover_key),
     cover_focus: rowToFocus(r),
+    cover_ai: r.cover_ai === 1,
     avg_rating: r.avg_rating === null ? null : Math.round(r.avg_rating * 10) / 10,
     rating_count: r.rating_count,
     bookmarks: bookmarks.get(r.id) ?? [],
@@ -415,12 +418,21 @@ export async function getCoverKey(db: D1Database, id: string): Promise<{ cover_k
   return db.prepare("SELECT cover_key FROM recipes WHERE id = ?").bind(id).first<{ cover_key: string | null }>();
 }
 
-/** A new image starts with the focus that came with it (the importer's proposal), or none. */
-export async function setCoverKey(db: D1Database, id: string, key: string, focus: CoverFocus | null, now: string): Promise<void> {
-  await db
-    .prepare("UPDATE recipes SET cover_key = ?, cover_focus_x = ?, cover_focus_y = ?, cover_focus_by = ?, updated_at = ? WHERE id = ?")
-    .bind(key, focus?.x ?? null, focus?.y ?? null, focus ? "import" : null, now, id)
+export type NewCover = { key: string; focus: CoverFocus | null; ai: boolean };
+
+/**
+ * Points the recipe at a new image, only while its cover is still `expectedKey`; false when it
+ * moved on (or the recipe is gone). The image starts with the focus that came with it (the
+ * importer's proposal) or none, and with cover_ai saying whether Workers AI made it.
+ */
+export async function setCoverKey(db: D1Database, id: string, expectedKey: string | null, cover: NewCover, now: string): Promise<boolean> {
+  const res = await db
+    .prepare(
+      "UPDATE recipes SET cover_key = ?, cover_focus_x = ?, cover_focus_y = ?, cover_focus_by = ?, cover_ai = ?, updated_at = ? WHERE id = ? AND cover_key IS ?",
+    )
+    .bind(cover.key, cover.focus?.x ?? null, cover.focus?.y ?? null, cover.focus ? "import" : null, cover.ai ? 1 : 0, now, id, expectedKey)
     .run();
+  return res.meta.changes > 0;
 }
 
 /** Returns false if the recipe does not exist. */

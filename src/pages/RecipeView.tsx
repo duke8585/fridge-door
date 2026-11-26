@@ -6,6 +6,7 @@ import { ingredientsToShopping, nextTimestamp, scaleLabel } from "../../shared/s
 import { linkSteps } from "../../shared/stepLinks";
 import { isStepList } from "../../shared/steps";
 import { formatTime } from "../../shared/time";
+import { AiBadge } from "../components/AiBadge";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { Markdown, splitSteps } from "../components/Markdown";
 import { StarsInput } from "../components/Stars";
@@ -193,6 +194,7 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
         {recipe.cover_key && !cooking && (
           <button type="button" className="cover-button" onClick={() => setFullCover(true)} aria-label="Show the full cover image">
             <img className="cover" src={coverUrl(recipe.cover_key)} style={{ objectPosition: focusPosition(recipe.cover_focus) }} alt="" decoding="async" />
+            {recipe.cover_ai && <AiBadge />}
           </button>
         )}
         {recipe.cover_key && fullCover && <Lightbox src={coverUrl(recipe.cover_key)} onClose={() => setFullCover(false)} />}

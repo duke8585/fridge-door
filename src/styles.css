@@ -754,6 +754,22 @@ button:disabled {
   border-radius: 8px;
   min-height: 0;
   cursor: zoom-in;
+  position: relative;
+}
+/* Over a photo, so one look for both themes: white on 60 % black stays >= 5.7:1 over any image. */
+.ai-badge {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  pointer-events: none;
 }
 .lightbox {
   position: fixed;

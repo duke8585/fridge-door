@@ -22,7 +22,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const ctx = (): ExecutionContext => ({ waitUntil: () => {}, passThroughOnException: () => {}, props: {} }) as unknown as ExecutionContext;
+/** Work a request handed to waitUntil, to await after its reply. */
+let background: Promise<unknown>[] = [];
+beforeEach(() => {
+  background = [];
+});
+const ctx = (): ExecutionContext =>
+  ({ waitUntil: (p: Promise<unknown>) => background.push(p), passThroughOnException: () => {}, props: {} }) as unknown as ExecutionContext;
 const call = async (path: string, init: AuthedInit = {}): Promise<Response> =>
   (await worker.fetch((await authedRequest(`${TEST_ORIGIN}${path}`, init)) as never, env as never, ctx())) as Response;
 
@@ -264,6 +270,34 @@ describe("MCP tools", () => {
       "set_tags",
       "update_recipe",
     ]);
+  });
+
+  it("create_recipe replies first, then generates a cover in the background", async () => {
+    const token = await connect("alice");
+    let finish!: (out: { image: string }) => void;
+    const run = vi.fn(() => new Promise((r) => (finish = r)));
+    env.AI = { run };
+    const { data } = await tool(token, "create_recipe", { recipe: dal() });
+    expect((await repo.getRecipe(env.DB as D1Database, data.id))?.cover_key).toBeUndefined();
+    await vi.waitFor(() => expect(run).toHaveBeenCalledOnce());
+    expect(run.mock.calls[0]).toEqual([
+      "@cf/black-forest-labs/flux-1-schnell",
+      expect.objectContaining({ prompt: expect.stringContaining('"Red lentil dal"') }),
+    ]);
+    finish({ image: btoa("\xff\xd8\xff") });
+    await Promise.all(background);
+    expect(await repo.getRecipe(env.DB as D1Database, data.id)).toMatchObject({ cover_key: expect.stringMatching(/\.jpg$/), cover_ai: true });
+  });
+
+  it("create_recipe without the AI binding saves the recipe and leaves it without a cover", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const token = await connect("alice");
+    const { isError, data } = await tool(token, "create_recipe", { recipe: dal() });
+    expect(isError).toBeFalsy();
+    await Promise.all(background);
+    expect((await repo.getRecipe(env.DB as D1Database, data.id))?.cover_key).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("no AI binding"));
+    warn.mockRestore();
   });
 
   it("refuses a grant whose user is not a current user", async () => {

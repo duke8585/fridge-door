@@ -22,7 +22,7 @@ export const mcpApi = {
     // The grant could predate a change to LOGINS: only a current user may act.
     const user = (ctx.props as { user?: unknown } | undefined)?.user;
     if (typeof user !== "string" || !users(env).includes(user)) return new Response("Forbidden", { status: 403 });
-    const handler = createMcpHandler(() => createFridgeServer({ env, user, origin: new URL(req.url).origin }));
+    const handler = createMcpHandler(() => createFridgeServer({ env, user, origin: new URL(req.url).origin, waitUntil: (p) => ctx.waitUntil(p) }));
     return handler(req, env, ctx);
   },
 } satisfies ExportedHandler<Env>;

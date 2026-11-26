@@ -43,8 +43,13 @@ export type AuthEnv = {
 };
 
 export const PUBLIC_PATHS: ReadonlySet<string> = new Set(["/manifest.webmanifest", "/icon.svg", "/favicon.ico"]);
-/** The loader (scripts/load-import.ts) and the base backfill may use `Authorization: Bearer <IMPORT_TOKEN>` here, acting as the first user in LOGINS. */
-const BEARER_ROUTES: readonly RegExp[] = [/^\/api\/import\/[^/]+$/, /^\/api\/recipes\/[^/]+\/cover$/, /^\/api\/catalogue\/backfill$/];
+/** The loader (scripts/load-import.ts), the base backfill and the cover backfill may use `Authorization: Bearer <IMPORT_TOKEN>` here, acting as the first user in LOGINS. */
+const BEARER_ROUTES: readonly RegExp[] = [
+  /^\/api\/import\/[^/]+$/,
+  /^\/api\/recipes\/[^/]+\/cover$/,
+  /^\/api\/recipes\/[^/]+\/cover\/generate$/,
+  /^\/api\/catalogue\/backfill$/,
+];
 
 const NO_STORE = { "cache-control": "no-store" };
 

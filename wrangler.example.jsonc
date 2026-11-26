@@ -49,6 +49,9 @@
   ],
   // `npx wrangler r2 bucket create fridge-door-covers`
   "r2_buckets": [{ "binding": "COVERS", "bucket_name": "fridge-door-covers" }],
+  // Workers AI draws a cover for recipes created over MCP or from a link that came without one.
+  // Optional: without it those recipes keep the placeholder. Usage counts against the account.
+  "ai": { "binding": "AI" },
   // Secrets (per env, not in this file): SESSION_SECRET, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
   // GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, IMPORT_TOKEN, and optionally ANTHROPIC_API_KEY.
   // See docs/DEPLOY.md.
@@ -76,7 +79,8 @@
           "migrations_dir": "migrations"
         }
       ],
-      "r2_buckets": [{ "binding": "COVERS", "bucket_name": "fridge-door-stg-covers" }]
+      "r2_buckets": [{ "binding": "COVERS", "bucket_name": "fridge-door-stg-covers" }],
+      "ai": { "binding": "AI" }
     }
   }
 }

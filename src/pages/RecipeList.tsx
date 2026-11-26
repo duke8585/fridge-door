@@ -4,6 +4,7 @@ import { titleInitials } from "../../shared/coverArt";
 import { searchRecipes } from "../../shared/search";
 import { parseTag, primaryCourse, type TagGroup } from "../../shared/tags";
 import { formatMinutes, matchesTimeFilter, TIME_FILTERS } from "../../shared/time";
+import { AiBadge } from "../components/AiBadge";
 import { BookmarkButton, BookmarkIcon } from "../components/BookmarkButton";
 import { AvgStars } from "../components/Stars";
 import { TagChip } from "../components/TagChip";
@@ -263,6 +264,7 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
                   {titleInitials(r.title)}
                 </span>
               )}
+              {r.cover_key && r.cover_ai && <AiBadge />}
               <span className="card-body">
                 <span className="title">{r.title}</span>
                 <span className="meta">

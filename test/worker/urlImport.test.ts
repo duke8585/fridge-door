@@ -412,6 +412,41 @@ describe("POST /api/import-url/save", () => {
     expect(sqlite.prepare("SELECT source, author FROM recipe_revisions").all()).toEqual([{ source: "url-import", author: "bob" }]);
   });
 
+  it("generates a cover after the reply when the import brought none, and not when it did", async () => {
+    let finish!: (out: { image: string }) => void;
+    const run = vi.fn(() => new Promise((r) => (finish = r)));
+    env.AI = { run };
+    const waits: Promise<unknown>[] = [];
+    const save = async (body: unknown) => {
+      const req = await authedRequest(`${TEST_ORIGIN}/api/import-url/save`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      return (await worker.fetch(req as never, env as never, { ...ctx(), waitUntil: (p: Promise<unknown>) => waits.push(p) } as never)) as Response;
+    };
+
+    const res = await save({ recipe: draft(), review_notes: [], confirm_duplicate: false, cover_url: null });
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as any).recipe.cover_key).toBeUndefined();
+    expect(run).toHaveBeenCalledOnce();
+    finish({ image: btoa("\xff\xd8\xff") });
+    await Promise.all(waits);
+    expect(await repo.getRecipe(env.DB as D1Database, "red-lentil-dal")).toMatchObject({ cover_key: expect.stringMatching(/\.jpg$/), cover_ai: true });
+
+    pages.set("https://img.example/kofta.png", () => new Response(png, { headers: { "content-type": "image/png" } }));
+    const withCover = await save({
+      recipe: draft({ title: "Lamb kofta", source_url: "https://cook.example/kofta" }),
+      review_notes: [],
+      confirm_duplicate: false,
+      cover_url: "https://img.example/kofta.png",
+    });
+    expect(withCover.status).toBe(201);
+    await Promise.all(waits);
+    expect(run).toHaveBeenCalledOnce();
+    expect(((await withCover.json()) as any).recipe).toMatchObject({ cover_key: expect.stringMatching(/\.png$/), cover_ai: false });
+  });
+
   it("saves the recipe even when the cover fails, and reports it", async () => {
     const res = await post("/api/import-url/save", {
       recipe: draft(),

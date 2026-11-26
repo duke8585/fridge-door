@@ -63,6 +63,7 @@ Replace every `<...>` value:
 | `kv_namespaces[0].id`         | the KV id from step 1                                                                              |
 | `d1_databases[0].database_id` | the D1 id from step 1                                                                              |
 | `r2_buckets[0].bucket_name`   | the bucket name, if you chose another one                                                          |
+| `ai.binding`                  | keep `AI` (top level and `env.stg`) for generated covers, or remove both to switch them off        |
 | `env.stg.*`                   | the same for staging; `MCP_RESOURCE` is `https://fridge-door-stg.<your-subdomain>.workers.dev/mcp` |
 
 Your workers.dev subdomain is shown in the dashboard under Workers & Pages.
@@ -129,13 +130,13 @@ A GitHub OAuth App has a single callback URL, so create a second app for staging
 
 Secrets are set per environment and never live in the repository.
 
-| secret                                     | needed                                          | what                                                                                                                                                                                                                                                                       |
-| ------------------------------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SESSION_SECRET`                           | yes                                             | HMAC key for the session and OAuth state cookies. Rotating it logs everyone out                                                                                                                                                                                            |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for Google login                                | from step 4                                                                                                                                                                                                                                                                |
-| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | for GitHub login                                | from step 4                                                                                                                                                                                                                                                                |
-| `IMPORT_TOKEN`                             | for `npm run load-import` and the base backfill | bearer token accepted only on `PUT /api/import/:ref`, `PUT /api/recipes/:id/cover` and `PUT /api/catalogue/backfill`, acting as the first user in `LOGINS`                                                                                                                 |
-| `ANTHROPIC_API_KEY`                        | optional                                        | link import with Claude, and Claude Haiku for ingredient names the catalogue does not know. Without it, link import still works (schema.org Recipe data is mapped field by field, other pages become stubs) and unknown ingredients get a rule-based base in aisle "other" |
+| secret                                     | needed                                      | what                                                                                                                                                                                                                                                                       |
+| ------------------------------------------ | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_SECRET`                           | yes                                         | HMAC key for the session and OAuth state cookies. Rotating it logs everyone out                                                                                                                                                                                            |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for Google login                            | from step 4                                                                                                                                                                                                                                                                |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | for GitHub login                            | from step 4                                                                                                                                                                                                                                                                |
+| `IMPORT_TOKEN`                             | for `npm run load-import` and the backfills | bearer token accepted only on `PUT /api/import/:ref`, `PUT /api/recipes/:id/cover`, `PUT /api/recipes/:id/cover/generate` and `PUT /api/catalogue/backfill`, acting as the first user in `LOGINS`                                                                          |
+| `ANTHROPIC_API_KEY`                        | optional                                    | link import with Claude, and Claude Haiku for ingredient names the catalogue does not know. Without it, link import still works (schema.org Recipe data is mapped field by field, other pages become stubs) and unknown ingredients get a rule-based base in aisle "other" |
 
 Production:
 
@@ -291,6 +292,40 @@ name into the new name once and then deletes it, so offline edits that have not 
 
 Migration 0015 adds `shopping_items.scale`, the factor a recipe line was added with. It only adds a
 column. Rows from before it, and rows from clients that do not send it yet, show no chip.
+
+## Generated covers
+
+A recipe created over MCP (`create_recipe`) or saved from a link import without a cover gets one
+from Workers AI (`@cf/black-forest-labs/flux-1-schnell`), after the reply is sent. The app marks
+these covers "AI". Editor creates never generate one. It needs the `ai` binding named `AI` in
+`wrangler.jsonc`, at the top level and in `env.stg` (see step 2). Without the binding nothing is
+generated, the Worker logs a warning, and the recipe keeps its placeholder.
+
+Migration 0016 adds `recipes.cover_ai` (default 0). A generated cover sets it to 1. Any other new
+image (upload, link import, `set_cover_from_url`, the bulk loader) sets it back to 0, and a focus
+change keeps it. Apply it before deploying the Worker that writes it.
+
+To give the existing recipes without a cover one, call `PUT /api/recipes/:id/cover/generate` once
+per recipe. It waits for the image and answers `{"status":"generated"}`, `{"status":"skipped","reason":"has_cover"}`
+or `{"status":"unavailable","reason":...}` (no binding, model error). It accepts a session or the
+import token:
+
+```sh
+TOKEN="$(grep ^IMPORT_TOKEN_PROD= .env | cut -d= -f2-)"
+npx wrangler d1 execute DB --remote -c wrangler.jsonc --json \
+  --command "SELECT id FROM recipes WHERE cover_key IS NULL" | jq -r '.[0].results[].id' |
+  while read -r id; do
+    echo "$id $(curl -sS -X PUT -H "authorization: Bearer $TOKEN" "https://<your domain>/api/recipes/$id/cover/generate")"
+  done
+```
+
+For staging, add `--env stg` to the `wrangler` call and use `IMPORT_TOKEN_STG` and the stg origin.
+Rerunning is safe: recipes that have a cover by then are skipped without a model call.
+
+Cost: every image is Workers AI usage on the Cloudflare account (the daily free allocation, then
+billed on Workers Paid). That is one image per recipe created over MCP or from a link without a
+cover, plus one per recipe the backfill covers. Check the account's Workers AI usage page after a
+backfill.
 
 ## Ingredient bases
 

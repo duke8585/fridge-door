@@ -19,6 +19,12 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   A recipe without a cover shows up to three initials of its title ("Air-fryer crispy tofu" is
   ACT) on a card coloured by its course: mains orange, salads green, soups amber, drinks blue and
   so on. Of two courses, the first in the tag scheme's order picks the colour.
+- **Generated covers**: a recipe created over MCP or saved from a link without a cover image gets
+  one drawn by Workers AI from its title, ingredients and last step, a moment after it is saved.
+  A small "AI" badge marks it on the card and the recipe until someone sets another image.
+  Recipes made in the editor do not get one. It needs the Workers AI binding (`AI` in `wrangler.jsonc`);
+  without it recipes keep the placeholder. Existing recipes can be given one with a backfill
+  (docs/DEPLOY.md, "Generated covers").
 - **Scaling** by servings or by factor, with per-unit rounding and g/ml promoted to kg/l.
 - **Cooking mode**: bigger text, screen kept awake, tap to tick off steps and ingredients. Steps
   always show the amount of each ingredient they name, at the current scale, right after the word.
@@ -114,8 +120,8 @@ shared/      zod schemas and types shared by client and server, tag scheme, line
              scaler, search, lint rules for recipe content
 worker/      entry with the MCP OAuth provider (index.ts), Hono app (app.ts), D1 access (repo.ts),
              login (auth.ts, session.ts), MCP consent page (oauth.ts) and tools (mcp.ts),
-             covers on R2 (covers.ts), link import (urlImport.ts, pageFetch.ts, extract.ts,
-             recipeLlm.ts, ldDraft.ts)
+             covers on R2 (covers.ts), generated covers (coverGen.ts), link import (urlImport.ts,
+             pageFetch.ts, extract.ts, recipeLlm.ts, ldDraft.ts)
 src/         React 19 client: pages, components, lib (router, signal, api client),
              store (IndexedDB, outbox, sync)
 sw/sw.js     hand-written service worker; sw-plugin.ts injects the precache list at build time

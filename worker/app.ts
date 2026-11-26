@@ -27,12 +27,16 @@ import { searchRecipes } from "../shared/search";
 import { applyTagDelta } from "../shared/tags";
 import { type AuthEnv, authRoutes, PUBLIC_PATHS, requestUser, unauthenticated, users } from "./auth";
 import { backfillBases, placeShopping, resolveRecipe } from "./catalogue";
+import { generateCover } from "./coverGen";
 import { storeCover } from "./covers";
 import * as repo from "./repo";
 import { importFromUrl, importStatus, saveImported } from "./urlImport";
 
-/** ANTHROPIC_API_KEY (secret) enables AI import from a link; without it imports are filled without AI. */
-export type Bindings = { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; ANTHROPIC_API_KEY?: string } & AuthEnv;
+/**
+ * ANTHROPIC_API_KEY (secret) enables AI import from a link; without it imports are filled without AI.
+ * AI (Workers AI binding) enables generated covers; without it recipes keep the placeholder.
+ */
+export type Bindings = { DB: D1Database; COVERS: R2Bucket; ASSETS: Fetcher; ANTHROPIC_API_KEY?: string; AI?: Ai } & AuthEnv;
 export type Env = { Bindings: Bindings; Variables: { user: User } };
 
 const app = new Hono<Env>().basePath("/api");
@@ -203,8 +207,18 @@ app.put("/recipes/:id/cover", async (c) => {
   const bytes = await c.req.arrayBuffer();
   if (bytes.byteLength > MAX_COVER_BYTES) return c.json({ error: "too_large", message: "Max 10 MB" }, 413);
   if (bytes.byteLength === 0) return c.json<ValidationErrorBody>({ error: "validation", fields: { _: "Empty image" } }, 400);
-  await storeCover(c.env, id, row.cover_key, { bytes, type, ext, focus: focus?.data ?? null }, now());
+  await storeCover(c.env, id, row.cover_key, { bytes, type, ext, focus: focus?.data ?? null, ai: false }, now());
   return c.json(await repo.getRecipe(c.env.DB, id));
+});
+
+/**
+ * Generate a cover with Workers AI for a recipe that has none, one image per request, waiting for
+ * it. Also accepts IMPORT_TOKEN, so a shell loop can backfill the recipes without a cover.
+ */
+app.put("/recipes/:id/cover/generate", async (c) => {
+  const result = await generateCover(c.env, c.req.param("id"));
+  if (result.status === "skipped" && result.reason === "not_found") return c.json({ error: "not_found" }, 404);
+  return c.json(result);
 });
 
 /** Set (or with null, reset) the focal point. Plain overwrite: replays are harmless, the last write wins. */

@@ -13,14 +13,15 @@ import { queryTerms, searchRank } from "../shared/search";
 import { ingredientsToShopping } from "../shared/shopping";
 import { applyTagDelta, overMax, renameLegacyTag, STUB_TAG, TAG_GROUP_NAMES, TAG_GROUPS, tagProblem } from "../shared/tags";
 import { backfillBases, placeShopping, resolveRecipe } from "./catalogue";
+import { generateCoverLater } from "./coverGen";
 import { storeCover } from "./covers";
 import { draftProblems, ingestRecipe, notesComment, ReviewNotesSchema, withServerTags } from "./ingest";
 import { readAtMost } from "./pageFetch";
 import * as repo from "./repo";
 
-export type McpEnv = { DB: D1Database; COVERS: R2Bucket; ANTHROPIC_API_KEY?: string };
-/** `origin` is the app's public origin, for links back to the recipes. */
-export type McpContext = { env: McpEnv; user: User; origin: string };
+export type McpEnv = { DB: D1Database; COVERS: R2Bucket; ANTHROPIC_API_KEY?: string; AI?: Ai };
+/** `origin` is the app's public origin, for links back to the recipes. `waitUntil` is the request's, for work after the reply. */
+export type McpContext = { env: McpEnv; user: User; origin: string; waitUntil: (p: Promise<unknown>) => void };
 
 type ToolResult = {
   content: { type: "text"; text: string }[];
@@ -158,7 +159,7 @@ export async function fetchCoverImage(imageUrl: string): Promise<FetchedImage> {
   }
 }
 
-export function createFridgeServer({ env, user, origin }: McpContext): McpServer {
+export function createFridgeServer({ env, user, origin, waitUntil }: McpContext): McpServer {
   const db = env.DB;
   const change = (): repo.ContentChange => ({ author: user, source: "mcp", now: now() });
   const link = (id: string): string => `${origin}/recipes/${encodeURIComponent(id)}`;
@@ -274,6 +275,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
         );
       }
       const { id } = result;
+      generateCoverLater(waitUntil, env, id);
       const saved = (await repo.getRecipe(db, id))!;
       return ok({ id, title: saved.title, tags: saved.tags, updated_at: saved.updated_at, url: link(id) });
     },
@@ -428,7 +430,7 @@ export function createFridgeServer({ env, user, origin }: McpContext): McpServer
       if (!row) return notFound(id);
       const image = await fetchCoverImage(image_url);
       if (!image.ok) return fail(`Not saved: ${image.message}`);
-      await storeCover(env, id, row.cover_key, { bytes: image.bytes, type: image.type, ext: image.ext, focus: focus ?? null }, now());
+      await storeCover(env, id, row.cover_key, { bytes: image.bytes, type: image.type, ext: image.ext, focus: focus ?? null, ai: false }, now());
       const saved = (await repo.getRecipe(db, id))!;
       return ok({ id, cover_key: saved.cover_key ?? null, cover_focus: saved.cover_focus });
     },

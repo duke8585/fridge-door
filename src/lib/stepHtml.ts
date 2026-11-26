@@ -4,12 +4,15 @@ import type { Span } from "../../shared/stepLinks";
 import { renderMarkdownInline } from "./markdown";
 
 /** What the reader sees for one span: the word's kind and the amount that follows it. */
-export type Mark = { id: number; from: number; to: number; kind: "ing" | "sec" | "amb"; pill: string; section?: number };
+export type Mark = { id: number; from: number; to: number; kind: "ing" | "sec" | "amb"; pill: string; section?: number; covered?: boolean };
 
 const amount = (g: { qty?: number; qtyMax?: number; unit?: Parameters<typeof formatQty>[2] }) => formatQty(g.qty, g.qtyMax, g.unit);
 
-/** Spans worth showing, with their amount text. Lines without a qty ("salt to taste") and empty sections drop out. */
-export function stepMarks(spans: readonly Span[], sections: readonly Section[]): Mark[] {
+/**
+ * Spans worth showing, with their amount text. Lines without a qty ("salt to taste") and empty sections drop out.
+ * A section is `covered` when every line of it with a qty is named by some step (`named`, line indexes over all sections).
+ */
+export function stepMarks(spans: readonly Span[], sections: readonly Section[], named: ReadonlySet<number>): Mark[] {
   const out: Mark[] = [];
   spans.forEach((s, id) => {
     const at = { id, from: s.from, to: s.to };
@@ -18,7 +21,11 @@ export function stepMarks(spans: readonly Span[], sections: readonly Section[]):
     } else if (s.kind === "ambiguous") {
       const amounts = [...new Set(s.lines.filter((l) => l.qty !== undefined).map(amount))];
       if (amounts.length) out.push({ ...at, kind: "amb", pill: amounts.join(" or ") });
-    } else if (sections[s.section]?.ingredients.length) out.push({ ...at, kind: "sec", pill: "", section: s.section });
+    } else if (sections[s.section]?.ingredients.length) {
+      const start = sections.slice(0, s.section).reduce((n, x) => n + x.ingredients.length, 0);
+      const covered = sections[s.section]!.ingredients.every((g, i) => g.qty === undefined || named.has(start + i));
+      out.push({ ...at, kind: "sec", pill: "", section: s.section, covered });
+    }
   });
   return out;
 }

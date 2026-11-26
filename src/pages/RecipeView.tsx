@@ -143,7 +143,20 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
   const f = recipe.yield ? factorForYield(recipe.yield.amount, servings) : factor;
   const scaled = useMemo(() => recipe.sections.map((s) => ({ ...s, ingredients: s.ingredients.map((i) => scaleIngredient(i, f)) })), [recipe.sections, f]);
   const steps = useMemo(() => splitSteps(recipe.steps_md), [recipe.steps_md]);
-  const marks = useMemo(() => linkSteps(scaled, steps).map((spans) => stepMarks(spans, scaled)), [scaled, steps]);
+  const marks = useMemo(() => {
+    const spans = linkSteps(scaled, steps);
+    const named = new Set(spans.flat().flatMap((s) => (s.kind === "ingredient" ? [s.line.n] : [])));
+    const listed = new Set<number>();
+    // A section's list shows once, at its first mention: later ones count as covered.
+    return spans.map((step) =>
+      stepMarks(step, scaled, named).map((m) => {
+        if (m.kind !== "sec" || m.covered) return m;
+        if (listed.has(m.section!)) return { ...m, covered: true };
+        listed.add(m.section!);
+        return m;
+      }),
+    );
+  }, [scaled, steps]);
   const perStep = isStepList(recipe.steps_md) && marks.some((m) => m.length > 0);
   const mine = recipe.ratings.find((r) => r.user === user)?.stars;
   const bookmarked = recipe.bookmarks.some((b) => b.user === user);

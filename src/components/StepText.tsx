@@ -4,12 +4,13 @@ import { type Mark, renderStep, sectionLines } from "../lib/stepHtml";
 
 /**
  * One step with the amounts of the ingredients it names. Reading: tap a word for its amount or a
- * section reference for the section's list. Cooking: amounts and lists are always shown.
+ * section reference for the section's list. Cooking: amounts are always shown, and a section's list
+ * only when the steps do not name its ingredients one by one.
  */
 export function StepText({ step, marks, scaled, cooking }: { step: string; marks: Mark[]; scaled: Section[]; cooking: boolean }) {
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
-  const shown = (m: Mark): boolean => cooking || open.has(m.id);
-  const html = useMemo(() => renderStep(step, marks, (m) => cooking || open.has(m.id)), [step, marks, cooking, open]);
+  const shown = (m: Mark): boolean => (cooking ? !m.covered : open.has(m.id));
+  const html = useMemo(() => renderStep(step, marks, (m) => (cooking ? !m.covered : open.has(m.id))), [step, marks, cooking, open]);
   const tap = (e: React.MouseEvent): void => {
     if (cooking) return;
     const id = (e.target as Element).closest("[data-s]")?.getAttribute("data-s");

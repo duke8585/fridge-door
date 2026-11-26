@@ -19,6 +19,8 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
 - **Scaling** by servings or by factor, with per-unit rounding and g/ml promoted to kg/l.
 - **Cooking mode**: bigger text, screen kept awake, tap to tick off steps and ingredients. Steps
   always show the amount of each ingredient they name, at the current scale, right after the word.
+  A step that names a section ("blend the sauce ingredients") lists that section once, unless the
+  steps already name each of its ingredients.
 - **Amounts in steps**: the steps never state amounts; the app finds the ingredients a step names
   from the recipe's own list. Reading a recipe, a dotted underline marks an ingredient (tap it for
   its amount), a dashed one a section ("the sauce", tap for the section's list) and a wavy one a

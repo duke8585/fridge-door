@@ -900,8 +900,11 @@ button:disabled {
   color: var(--muted);
   font-size: 0.9em;
 }
-.step-sec li {
+.step-sec li,
+.step-list .step-sec li {
+  padding: 0;
   margin: 0.1rem 0;
+  cursor: inherit;
 }
 
 /* shopping */

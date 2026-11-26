@@ -129,7 +129,7 @@ describe("lintRecipe step rules", () => {
 
 describe("renderStep", () => {
   const sections: Section[] = [{ ingredients: [g("butter", 75), g("sugar", 150), { item: "salt", note: "to taste" }] }];
-  const marks = (step: string) => stepMarks(linkSteps(sections, [step])[0]!, sections);
+  const marks = (step: string) => stepMarks(linkSteps(sections, [step])[0]!, sections, new Set());
   const html = (step: string, pills = true) => renderStep(step, marks(step), () => pills);
 
   it("wraps the word and adds the amount pill after it", () => {
@@ -148,6 +148,18 @@ describe("renderStep", () => {
   it("drops a span inside a link or code and keeps the link", () => {
     expect(html("See [the butter](https://x.example/b) now.")).toBe('See <a href="https://x.example/b">the butter</a> now.');
     expect(html("Run `butter` now.")).toBe("Run <code>butter</code> now.");
+  });
+  it("marks a section covered only when the steps name each of its lines with a qty", () => {
+    const two: Section[] = [
+      { title: "Dough", ingredients: [g("flour", 400), { item: "salt" }] },
+      { title: "Sauce", ingredients: [g("tahini", 15)] },
+    ];
+    const steps = ["Knead the flour.", "Spread the dough.", "Pour over the sauce."];
+    const spans = linkSteps(two, steps);
+    const named = new Set(spans.flat().flatMap((s) => (s.kind === "ingredient" ? [s.line.n] : [])));
+    const sec = (i: number) => stepMarks(spans[i]!, two, named).find((m) => m.kind === "sec");
+    expect(sec(1)?.covered).toBe(true);
+    expect(sec(2)?.covered).toBe(false);
   });
   it("never lets recipe text become markup", () => {
     expect(html('Beat the butter <img src=x onerror="alert(1)">')).not.toContain("<img");

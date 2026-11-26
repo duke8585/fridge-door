@@ -42,6 +42,13 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
 - **Bookmarks** per person: tap the bookmark on a card or a recipe. The bookmark tab next to the tag
   groups narrows the list to yours, with search and filters on top. Bookmarked recipes open offline, and an import offers to
   bookmark the new recipe.
+- **Archive** a recipe from its page to hide it from the list for everyone in the household (it is
+  shared, not per person). Nothing is lost: it keeps its comments, ratings and history, opens by
+  link, and "Unarchive" on its page brings it back. The "Archived" toggle next to All / Saved adds
+  the archived recipes to the list, after the others and greyed out, with search, filters and sort
+  applying as usual. With the toggle off, a search that would find archived recipes says so. It is
+  the tag `status:archived`, so the change syncs offline and shows in the version history. There
+  is no delete in the app: docs/DEPLOY.md, "Deleting a recipe", has the database commands.
 - **Tags** in groups (`course:main`, `cuisine:thai`, `list:next-up`, ...), defined once in
   `shared/tags.ts`. The list filters by group and searches titles, ingredients, tags and notes.
   Search, filters and sort stay while the app is open: Back, "← Recipes" and the logo all return to

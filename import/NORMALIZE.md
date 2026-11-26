@@ -102,7 +102,7 @@ within the counts in brackets.
 - `method` (0-3): oven, airfryer, instant-pot, one-pot, no-cook, batch. How it is cooked.
 - `list` (never set by you): free value. A plan or set of the owners, e.g. list:next-up, list:birthday.
 - `collection` (0-n): free value. Recipes split out of one source share one, e.g. collection:cottage-cheese-ideas.
-- `status` (never set by you): stub. Set by the server: status:stub when the recipe is not written up.
+- `status` (never set by you): stub, archived. Status:stub (set by the server) when the recipe is not written up, status:archived (set in the app) hides it from the list.
 - `todo` (never set by you): method, correction. Work left: todo:method (set by the server when there are no steps), todo:correction.
 <!-- end generated -->
 

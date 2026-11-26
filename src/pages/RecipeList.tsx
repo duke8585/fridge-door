@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { coverUrl, focusPosition } from "../../shared/cover";
 import { titleInitials } from "../../shared/coverArt";
+import type { RecipeSummary } from "../../shared/schema";
 import { searchRecipes } from "../../shared/search";
-import { parseTag, primaryCourse, type TagGroup } from "../../shared/tags";
+import { ARCHIVED_TAG, isArchived, parseTag, primaryCourse, type TagGroup } from "../../shared/tags";
 import { formatMinutes, matchesTimeFilter, TIME_FILTERS } from "../../shared/time";
 import { AiBadge } from "../components/AiBadge";
 import { BookmarkButton, BookmarkIcon } from "../components/BookmarkButton";
@@ -33,6 +34,7 @@ let remembered = "";
  * over the cached list, so they work offline. With a search, relevance comes first (title matches,
  * then tags and ingredients, then notes) and the chosen sort orders the recipes within each of those.
  * `bookmarks` (the /bookmarks page, switched by All / Saved above the cards) narrows the list to my bookmarks before all of that.
+ * Archived recipes (status:archived) are left out unless the Archived toggle is on; then they come after the others.
  */
 export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   const all = useSignal(summaries);
@@ -46,24 +48,28 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
   const [openGroup, setOpenGroup] = useState<TagGroup | "duration" | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
   const [sort, setSort] = useState<Sort>(initial.sort);
+  const [showArchived, setShowArchived] = useState(initial.archived);
   const list = useMemo(() => (bookmarks ? all?.filter((r) => r.bookmarks.some((b) => b.user === me)) : all), [all, bookmarks, me]);
+  const archivedCount = useMemo(() => list?.filter((r) => isArchived(r.tags)).length ?? 0, [list]);
+  // archived recipes are left out before anything else, so they neither show nor count in a chip unless the toggle is on
+  const visible = useMemo(() => (showArchived ? list : list?.filter((r) => !isArchived(r.tags))), [list, showArchived]);
   const [time, setTime] = useState<string | null>(initial.time);
   const [cached, setCached] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    const search = writeFilter(location.search, { q, tags: selected, time, sort });
+    const search = writeFilter(location.search, { q, tags: selected, time, sort, archived: showArchived });
     remembered = search;
     if (search !== location.search) history.replaceState(history.state, "", location.pathname + search + location.hash);
-  }, [q, selected, time, sort]);
+  }, [q, selected, time, sort, showArchived]);
 
   useEffect(() => {
     void loadSummaries();
     void recentlyCached().then((ids) => setCached(new Set(ids)));
   }, []);
 
-  const groups = useMemo(() => filterGroups((list ?? []).map((r) => r.tags)), [list]);
+  const groups = useMemo(() => filterGroups((visible ?? []).map((r) => r.tags)), [visible]);
   // search and time first; the tag filter and the facet counts both work on top of these
-  const searched = useMemo(() => searchRecipes(list ?? [], q, cat), [list, q, cat]);
+  const searched = useMemo(() => searchRecipes(visible ?? [], q, cat), [visible, q, cat]);
   const base = useMemo(() => searched.filter((r) => matchesTimeFilter(r.time, time)), [searched, time]);
   const counts = useMemo(
     () =>
@@ -82,6 +88,14 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
     () => searchRecipes(base.filter((r) => matchesTagFilter(r.tags, selected)).sort(compareRecipes(sort)), q, cat),
     [base, q, selected, sort, cat],
   );
+  // archived ones after the rest, each part in the chosen order
+  const [live, archived] = useMemo(() => [shown.filter((r) => !isArchived(r.tags)), shown.filter((r) => isArchived(r.tags))], [shown]);
+  // with the toggle off, a search still says when it would find archived recipes
+  const hiddenMatches = useMemo(() => {
+    if (showArchived || !q.trim() || !list) return 0;
+    const pool = list.filter((r) => isArchived(r.tags) && matchesTimeFilter(r.time, time) && matchesTagFilter(r.tags, selected));
+    return searchRecipes(pool, q, cat).length;
+  }, [showArchived, q, list, time, selected, cat]);
   const toggle = (t: string): void =>
     setSelected((s) => {
       const next = new Set(s);
@@ -89,6 +103,55 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
       return next;
     });
   const open = groups.find((g) => g.group === openGroup);
+  const card = (r: RecipeSummary): ReactNode => {
+    const gone = isArchived(r.tags);
+    return (
+      <li key={r.id} className={gone ? "archived" : undefined}>
+        <Link href={`/recipes/${r.id}`}>
+          {r.cover_key ? (
+            <img
+              className="thumb"
+              src={coverUrl(r.cover_key)}
+              style={{ objectPosition: focusPosition(r.cover_focus) }}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span className="thumb placeholder" data-course={primaryCourse(r.tags)} aria-hidden="true">
+              {titleInitials(r.title)}
+            </span>
+          )}
+          {gone ? <span className="archived-pill">archived</span> : r.cover_key && r.cover_ai && <AiBadge />}
+          <span className="card-body">
+            <span className="title">{r.title}</span>
+            <span className="meta">
+              <AvgStars avg={r.avg_rating} count={r.rating_count} />
+              {r.time && <span className="muted small">{formatMinutes(r.time.total_min)}</span>}
+              {r.yield && (
+                <span className="muted small">
+                  {r.yield.amount} {r.yield.unit}
+                </span>
+              )}
+              {cached.has(r.id) && (
+                <span className="muted small" title="Available offline">
+                  ⤓ offline
+                </span>
+              )}
+            </span>
+            <span className="tags small">
+              {r.tags
+                .filter((t) => t !== ARCHIVED_TAG)
+                .map(cardTag)
+                .join(" · ")}
+            </span>
+            <span className="modified small">modified {ago(r.updated_at)}</span>
+          </span>
+        </Link>
+        <BookmarkButton on={r.bookmarks.some((b) => b.user === me)} onToggle={() => void setBookmark(r.id, me, !r.bookmarks.some((b) => b.user === me))} />
+      </li>
+    );
+  };
   const arrow = <span aria-label={sort.dir === "asc" ? "ascending" : "descending"}>{sort.dir === "asc" ? " ↑" : " ↓"}</span>;
 
   return (
@@ -220,6 +283,17 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
             Saved
           </button>
         </div>
+        {(archivedCount > 0 || showArchived) && (
+          <button
+            type="button"
+            className="archived-toggle"
+            aria-pressed={showArchived}
+            title={showArchived ? "Hide archived recipes" : "Show archived recipes after the others"}
+            onClick={() => setShowArchived(!showArchived)}
+          >
+            Archived <span className="small">{archivedCount}</span>
+          </button>
+        )}
         <button type="button" className="link-button sort-toggle" aria-expanded={sortOpen} aria-controls="sort-options" onClick={() => setSortOpen(!sortOpen)}>
           Sort: <strong>{SORTS.find((o) => o.id === sort.id)!.label}</strong>
           {arrow}
@@ -247,48 +321,22 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
       )}
       {list === undefined && <p className="muted">Loading...</p>}
       <ul className="recipe-list">
-        {shown.map((r) => (
-          <li key={r.id}>
-            <Link href={`/recipes/${r.id}`}>
-              {r.cover_key ? (
-                <img
-                  className="thumb"
-                  src={coverUrl(r.cover_key)}
-                  style={{ objectPosition: focusPosition(r.cover_focus) }}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                />
-              ) : (
-                <span className="thumb placeholder" data-course={primaryCourse(r.tags)} aria-hidden="true">
-                  {titleInitials(r.title)}
-                </span>
-              )}
-              {r.cover_key && r.cover_ai && <AiBadge />}
-              <span className="card-body">
-                <span className="title">{r.title}</span>
-                <span className="meta">
-                  <AvgStars avg={r.avg_rating} count={r.rating_count} />
-                  {r.time && <span className="muted small">{formatMinutes(r.time.total_min)}</span>}
-                  {r.yield && (
-                    <span className="muted small">
-                      {r.yield.amount} {r.yield.unit}
-                    </span>
-                  )}
-                  {cached.has(r.id) && (
-                    <span className="muted small" title="Available offline">
-                      ⤓ offline
-                    </span>
-                  )}
-                </span>
-                <span className="tags small">{r.tags.map(cardTag).join(" · ")}</span>
-                <span className="modified small">modified {ago(r.updated_at)}</span>
-              </span>
-            </Link>
-            <BookmarkButton on={r.bookmarks.some((b) => b.user === me)} onToggle={() => void setBookmark(r.id, me, !r.bookmarks.some((b) => b.user === me))} />
+        {live.map(card)}
+        {archived.length > 0 && (
+          <li className="list-divider" aria-hidden="true">
+            Archived · {archived.length}
           </li>
-        ))}
+        )}
+        {archived.map(card)}
       </ul>
+      {hiddenMatches > 0 && (
+        <p className="muted small">
+          {hiddenMatches === 1 ? "1 archived recipe matches" : `${hiddenMatches} archived recipes match`} ·{" "}
+          <button type="button" className="link-button small" onClick={() => setShowArchived(true)}>
+            show
+          </button>
+        </p>
+      )}
       {list && shown.length === 0 && (
         <p className="muted">
           {bookmarks && list.length === 0 ? "Nothing bookmarked yet. Tap the bookmark on a recipe to keep it here." : "No recipes match."}

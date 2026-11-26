@@ -526,7 +526,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.5rem 0.3rem;
+  flex-wrap: wrap;
   margin: 0.5rem 0 0.25rem;
 }
 .segmented {
@@ -556,7 +557,25 @@ button:disabled {
   width: 0.95rem;
   height: 0.95rem;
 }
+/* An add-on to All / Saved, not a third segment: it appends the archived recipes to either. */
+.archived-toggle {
+  min-height: 0;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+  margin-right: auto;
+}
+.archived-toggle[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
+}
 .sort-toggle {
+  margin-left: auto;
   color: var(--muted);
   font-size: 0.9rem;
   white-space: nowrap;
@@ -715,6 +734,30 @@ button:disabled {
 .bookmark-button[aria-pressed="true"] {
   color: var(--accent);
 }
+.recipe-list .list-divider {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.recipe-list .list-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--line);
+}
+.recipe-list li.archived .thumb {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+.recipe-list li.archived .title {
+  color: var(--muted);
+}
+.archived-pill {
+  text-transform: uppercase;
+}
 .recipe-list .bookmark-button {
   position: absolute;
   top: 0.35rem;
@@ -729,6 +772,14 @@ button:disabled {
 .title-row h1 {
   flex: 1;
   min-width: 0;
+}
+.archived-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
 }
 .saved-by {
   margin: -0.25rem 0 0;
@@ -757,7 +808,8 @@ button:disabled {
   position: relative;
 }
 /* Over a photo, so one look for both themes: white on 60 % black stays >= 5.7:1 over any image. */
-.ai-badge {
+.ai-badge,
+.archived-pill {
   position: absolute;
   top: 0.45rem;
   left: 0.45rem;

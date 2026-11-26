@@ -293,6 +293,22 @@ name into the new name once and then deletes it, so offline edits that have not 
 Migration 0015 adds `shopping_items.scale`, the factor a recipe line was added with. It only adds a
 column. Rows from before it, and rows from clients that do not send it yet, show no chip.
 
+## Deleting a recipe
+
+The app only archives (the tag `status:archived` hides a recipe from the list; README, "Archive").
+To delete one for good, remove its row and its cover by hand. Comments, ratings, bookmarks and
+revisions go with the row (`ON DELETE CASCADE`); shopping items keep their text. D1 Time Travel can
+still restore the database to before the delete.
+
+```sh
+ID=recipe-from-instagram-com
+npx wrangler d1 execute fridge-door --remote -c wrangler.jsonc \
+  --command "SELECT id, title, cover_key FROM recipes WHERE id = '$ID'"
+npx wrangler d1 execute fridge-door --remote -c wrangler.jsonc \
+  --command "DELETE FROM recipe_revisions WHERE recipe_id = '$ID'; DELETE FROM recipes WHERE id = '$ID'"
+npx wrangler r2 object delete "fridge-door-covers/<cover_key from the SELECT>" --remote -c wrangler.jsonc
+```
+
 ## Generated covers
 
 A recipe created over MCP (`create_recipe`) or saved from a link import without a cover gets one

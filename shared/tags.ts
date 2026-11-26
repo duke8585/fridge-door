@@ -32,7 +32,11 @@ export const TAG_GROUPS = {
   method: { values: ["oven", "airfryer", "instant-pot", "one-pot", "no-cook", "batch"], max: 3, content: true, about: "how it is cooked" },
   list: { content: false, about: "a plan or set of the owners, e.g. list:next-up, list:birthday" },
   collection: { content: true, about: "recipes split out of one source share one, e.g. collection:cottage-cheese-ideas" },
-  status: { values: ["stub"], content: false, about: "set by the server: status:stub when the recipe is not written up" },
+  status: {
+    values: ["stub", "archived"],
+    content: false,
+    about: "status:stub (set by the server) when the recipe is not written up, status:archived (set in the app) hides it from the list",
+  },
   todo: { values: ["method", "correction"], content: false, about: "work left: todo:method (set by the server when there are no steps), todo:correction" },
 } as const satisfies Record<string, GroupSpec>;
 
@@ -45,6 +49,9 @@ const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export const STUB_TAG = "status:stub";
 export const NEEDS_METHOD_TAG = "todo:method";
+/** Hidden from the recipe list for everyone until unarchived; the list's Archived toggle shows them last. */
+export const ARCHIVED_TAG = "status:archived";
+export const isArchived = (tags: readonly string[]): boolean => tags.includes(ARCHIVED_TAG);
 
 export const groupValues = (g: TagGroup): readonly string[] => spec(g).values ?? [];
 export const isFixedGroup = (g: TagGroup): boolean => spec(g).values !== undefined;

@@ -5,6 +5,7 @@ import type { Comment, Ingredient, Recipe } from "../../shared/schema";
 import { ingredientsToShopping, nextTimestamp, scaleLabel } from "../../shared/shopping";
 import { linkSteps } from "../../shared/stepLinks";
 import { isStepList } from "../../shared/steps";
+import { ARCHIVED_TAG, isArchived } from "../../shared/tags";
 import { formatTime } from "../../shared/time";
 import { AiBadge } from "../components/AiBadge";
 import { BookmarkButton } from "../components/BookmarkButton";
@@ -161,6 +162,7 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
   const perStep = isStepList(recipe.steps_md) && marks.some((m) => m.length > 0);
   const mine = recipe.ratings.find((r) => r.user === user)?.stars;
   const bookmarked = recipe.bookmarks.some((b) => b.user === user);
+  const archived = isArchived(recipe.tags);
   const savedBy = recipe.bookmarks.filter((b) => b.user !== user).map((b) => b.user);
   // Imported stubs have no ingredients and/or no steps yet: show what exists and point at the source.
   const hasIngredients = recipe.sections.some((s) => s.ingredients.length > 0);
@@ -220,9 +222,27 @@ function RecipeBody({ recipe, comments }: { recipe: Recipe; comments: Comment[] 
                 History
               </Link>
               <ShareButton recipe={recipe} factor={f} />
+              {!archived && (
+                <button
+                  type="button"
+                  className="secondary"
+                  title="Hide it from the recipe list for everyone"
+                  onClick={() => void addTag(recipe.id, user, ARCHIVED_TAG)}
+                >
+                  Archive
+                </button>
+              )}
             </>
           )}
         </div>
+        {archived && !cooking && (
+          <p className="notice archived-banner" role="status">
+            <span>Archived: hidden from the recipe list for everyone. The list's Archived toggle still shows it.</span>
+            <button type="button" className="secondary" onClick={() => void removeTag(recipe.id, user, ARCHIVED_TAG)}>
+              Unarchive
+            </button>
+          </p>
+        )}
       </div>
 
       {!hasSteps && (

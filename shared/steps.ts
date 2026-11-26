@@ -7,10 +7,15 @@ import { Lexer, type Tokens } from "marked";
 
 const tokens = (src: string) => Lexer.lex(src, { gfm: true, breaks: true });
 
-/** True when the whole markdown is one list, so it can be rendered one item at a time without losing text. */
+/**
+ * True when the whole markdown is one numbered list of plain one-paragraph items, so it can be
+ * rendered one item at a time without losing text or structure (nested lists, extra paragraphs).
+ */
 export function isStepList(src: string): boolean {
-  const t = tokens(src).filter((x) => x.type !== "space");
-  return t.length === 1 && t[0]!.type === "list";
+  const [list, ...rest] = tokens(src).filter((x) => x.type !== "space");
+  if (rest.length || list?.type !== "list") return false;
+  const { ordered, items } = list as Tokens.List;
+  return ordered && items.every((i) => i.tokens.length === 1 && (i.tokens[0]!.type === "text" || i.tokens[0]!.type === "paragraph"));
 }
 
 /** Split steps markdown into individual steps (list items, else paragraphs). */

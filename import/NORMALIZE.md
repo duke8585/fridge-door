@@ -48,7 +48,9 @@ The normalizer writes `import/llm/<gid>.json` with only `{ recipe, review }`.
   "2 tbsp", "1 clove"); temperatures, times and pan sizes stay. An item used in separate steps
   with separate amounts is one ingredient line per use, in the same or another section:
   "2 tbsp olive oil (for searing)" and "2 tbsp olive oil (for the shallots)". Every ingredient
-  with an amount is named in some step.
+  with an amount is named in some step. A bare count before an ingredient ("set aside 4 cookies")
+  reads as a portion of that line and is allowed; a number with a unit before it ("2 tbsp oil") is not.
+  create_recipe and update_recipe reject a recipe whose steps break these rules.
 - Notes: tips, variations, serving suggestions, storage. Credit a person when the source does
   ("Via a colleague of Nakul."). No marketing text, no hashtags, no "link in bio".
 - Do not invent. If the source has no steps, leave `steps_md` empty and say so in `review`.

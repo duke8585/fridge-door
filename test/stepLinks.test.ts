@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { lintRecipe } from "../shared/lint";
 import type { Ingredient, RecipeInput, Section } from "../shared/schema";
 import { linkSteps, type Span, statedAmounts } from "../shared/stepLinks";
+import { isStepList } from "../shared/steps";
 import { renderStep, stepMarks } from "../src/lib/stepHtml";
 
 const g = (item: string, qty: number, unit: Ingredient["unit"] = "g", more: Partial<Ingredient> = {}): Ingredient => ({ item, qty, unit, ...more });
@@ -102,6 +103,67 @@ describe("linkSteps", () => {
     const steps = ["Sear the chicken in the olive oil.", "Soften the shallots in the olive oil.", "Serve with olive oil."];
     expect(linkSteps(oil, steps).map((s) => s.map((x) => (x.kind === "ingredient" ? x.line.qty : x.kind)))).toEqual([[2], [2, 1], [1]]);
   });
+
+  const qtys = (sections: Section[], steps: string[]) =>
+    linkSteps(sections, steps).map((s) => s.map((x) => (x.kind === "ingredient" ? x.line.qty : x.kind === "ambiguous" ? x.lines.map((l) => l.qty) : x.kind)));
+
+  it("goes back to an earlier section's line when the later section's is used", () => {
+    const pie: Section[] = [
+      { title: "Dough", ingredients: [g("butter", 100), g("flour", 200)] },
+      { title: "Filling", ingredients: [g("butter", 50), g("sugar", 80)] },
+    ];
+    expect(qtys(pie, ["For the filling, cream the butter and sugar.", "Rub the butter into the flour."])).toEqual([
+      ["section", 50, 80],
+      [100, 200],
+    ]);
+  });
+
+  it("names the same line for the same words twice in one step, a second line only within its section", () => {
+    const crumble: Section[] = [
+      { title: "Crumble", ingredients: [g("butter", 75), g("flour", 150)] },
+      { title: "Glaze", ingredients: [g("butter", 20)] },
+    ];
+    expect(qtys(crumble, ["Melt the butter, then pour the butter over the flour.", "Brush on the butter."])).toEqual([[75, 75, 150], [20]]);
+    const oil: Section[] = [{ ingredients: [g("olive oil", 1, "tbsp"), g("olive oil", 2, "tbsp")] }];
+    expect(qtys(oil, ["Brown half the wedges in the olive oil, then the rest in the olive oil."])).toEqual([[1, 2]]);
+  });
+
+  it("reads a number as the amount only right before the name, a bare count as a portion", () => {
+    const veg: Section[] = [{ ingredients: [g("peas", 150), g("cream", 100, "ml"), g("egg", 2, "piece")] }];
+    expect(read(veg, "Steam 2 min, add peas.")).toEqual(["peas -> 150g"]);
+    expect(read(veg, "Simmer 10 min, add the cream.")).toEqual(["cream -> 100ml"]);
+    expect(read(veg, "Heat 100 ml cream.")).toEqual([]);
+    expect(read(veg, "Whisk 2 eggs.")).toEqual(["eggs -> 2piece partial"]);
+  });
+
+  it("does not take a verb, a generic word or a shared word at the end of section titles for the section", () => {
+    const bake: Section[] = [
+      { title: "Dry mix", ingredients: [g("flour", 200)] },
+      { title: "Wet mix", ingredients: [g("milk", 200, "ml")] },
+      { title: "Spice rub", ingredients: [g("paprika", 2, "tsp")] },
+    ];
+    expect(read(bake, "Mix until smooth.")).toEqual([]);
+    expect(read(bake, "Rub the paprika in.")).toEqual(["paprika -> 2tsp"]);
+    expect(read(bake, "Fold the wet mix into the dry mix.")).toEqual(["wet mix -> section Wet mix", "dry mix -> section Dry mix"]);
+    const sauces: Section[] = [
+      { title: "Pizza sauce", ingredients: [g("tomato", 400)] },
+      { title: "Pasta sauce", ingredients: [g("cream", 200, "ml")] },
+    ];
+    expect(read(sauces, "Simmer the sauce.")).toEqual([]);
+  });
+
+  it("leaves different items sharing a word ambiguous, unless only one is named by that word", () => {
+    const oils: Section[] = [{ ingredients: [g("olive oil", 2, "tbsp"), g("sesame oil", 1, "tsp")] }];
+    expect(read(oils, "Heat the oil.")).toEqual(["oil -> 2tbsp | 1tsp"]);
+    expect(read(oils, "Heat the sesame oil.")).toEqual(["sesame oil -> 1tsp"]);
+    const herbs: Section[] = [{ ingredients: [g("ground coriander", 1, "tsp"), g("cilantro", 10, "g", { base: "coriander" })] }];
+    expect(read(herbs, "Add the coriander.")).toEqual(["coriander -> 1tsp"]);
+  });
+
+  it("ignores words in a link's URL", () => {
+    const sections: Section[] = [{ ingredients: [g("butter", 75)] }];
+    expect(read(sections, "See [the recipe](https://x.example/butter/cake).")).toEqual([]);
+  });
 });
 
 describe("statedAmounts", () => {
@@ -121,6 +183,19 @@ describe("statedAmounts", () => {
   });
   it("leaves temperatures, times and pans alone", () => {
     expect(statedAmounts(sections, "Bake at 180 °C for 25 min in a 20 cm tin, then wait 2 l of steam to go.")).toEqual([]);
+  });
+  it("wants the name right after the unit, with at most of or the between", () => {
+    const brine: Section[] = [{ ingredients: [g("brine", 1, "l"), g("salt", 0.5, "tsp")] }];
+    expect(statedAmounts(brine, "Fill a 1 l jar with the brine.")).toEqual([]);
+    expect(statedAmounts(brine, "Add 1 l of the brine.")).toEqual(["1 l"]);
+  });
+  it("finds unicode fractions and ranges", () => {
+    const salt: Section[] = [{ ingredients: [g("salt", 0.5, "tsp"), g("olive oil", 1.5, "tbsp")] }];
+    expect(statedAmounts(salt, "Add ½ tsp salt and 1½ tbsp olive oil.")).toEqual(["½ tsp", "1½ tbsp"]);
+    expect(statedAmounts(sections, "Add 2-3 cloves garlic.")).toEqual(["2-3 cloves"]);
+  });
+  it("reads a bare count as a portion, not an amount", () => {
+    expect(statedAmounts([{ ingredients: [g("lemon", 3, "piece")] }], "Squeeze 1-2 lemons.")).toEqual([]);
   });
 });
 
@@ -162,6 +237,19 @@ describe("lintRecipe step rules", () => {
     ]);
     expect(lint(recipe("1. Sear in the olive oil.\n2. Soften the shallots in the olive oil.", oil))).toEqual([]);
   });
+  it("accepts steps that go back to an earlier section, give times before a name or count a portion", () => {
+    const pie: Section[] = [
+      { title: "Dough", ingredients: [g("butter", 100), g("flour", 200)] },
+      { title: "Filling", ingredients: [g("butter", 50), g("sugar", 80), g("peas", 100), g("egg", 2, "piece")] },
+    ];
+    const steps = "1. For the filling, cream the butter and sugar.\n2. Steam 2 min, add peas.\n3. Whisk 2 eggs.\n4. Rub the butter into the flour.";
+    expect(lint(recipe(steps, pie))).toEqual([]);
+  });
+  it("does not count a word in a link's URL as naming the ingredient", () => {
+    expect(lint(recipe("1. Rinse the lentils, see [the method](https://x.example/butter).\n2. Season with salt.", sections))).toEqual([
+      'no step names ingredient "butter": name it in the step that uses it',
+    ]);
+  });
   it("exempts stubs and recipes without steps", () => {
     expect(lint(recipe("", sections))).not.toContainEqual(expect.stringContaining("no step names"));
     const stub = { ...recipe("1. Cook it with 20 g of it.", sections), source_url: "https://example.com/dal" };
@@ -191,6 +279,11 @@ describe("renderStep", () => {
     expect(html("See [the butter](https://x.example/b) now.")).toBe('See <a href="https://x.example/b">the butter</a> now.');
     expect(html("Run `butter` now.")).toBe("Run <code>butter</code> now.");
   });
+  it("keeps the other marks of a step whose link URL holds an ingredient word", () => {
+    expect(html("See [butter](https://x.example/butter) and butter.")).toBe(
+      'See <a href="https://x.example/butter">butter</a> and <span class="ing" data-s="1">butter</span><span class="amt">75 g</span>.',
+    );
+  });
   it("marks a section covered only when the steps name each of its lines with a qty", () => {
     const two: Section[] = [
       { title: "Dough", ingredients: [g("flour", 400), { item: "salt" }] },
@@ -205,5 +298,16 @@ describe("renderStep", () => {
   });
   it("never lets recipe text become markup", () => {
     expect(html('Beat the butter <img src=x onerror="alert(1)">')).not.toContain("<img");
+  });
+});
+
+describe("isStepList", () => {
+  it("is true only for one numbered list of plain items, so rendering per item loses nothing", () => {
+    expect(isStepList("1. Beat the butter.\n2. Add the sugar.")).toBe(true);
+    expect(isStepList("1. Beat the butter.\n\n2. Add the sugar.")).toBe(true);
+    expect(isStepList("1. Beat the butter.\n   - softened\n2. Add the sugar.")).toBe(false);
+    expect(isStepList("1. Beat the butter.\n\n   Then rest it.\n2. Add the sugar.")).toBe(false);
+    expect(isStepList("- Beat the butter.\n- Add the sugar.")).toBe(false);
+    expect(isStepList("1. Beat the butter.\n2. Add the sugar.\n\nServe warm.")).toBe(false);
   });
 });

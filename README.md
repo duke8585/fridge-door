@@ -25,8 +25,9 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   from the recipe's own list. Reading a recipe, a dotted underline marks an ingredient (tap it for
   its amount), a dashed one a section ("the sauce", tap for the section's list) and a wavy one a
   word that fits two lines ("a or b"). "The rest of the butter" shows "of 113 g". Ingredients
-  without an amount (salt to taste) are not marked. Nothing is stored. MCP and link imports are
-  rejected unless every ingredient with an amount is named in some step and no step states one.
+  without an amount (salt to taste) are not marked. Nothing is stored. MCP and link imports, and
+  MCP updates, are rejected unless every ingredient with an amount is named in some step and no
+  step states one. A bare count ("set aside 4 cookies") is a portion, shown as "of 310 g".
 - **Ratings and comments** per person, markdown comments with preview.
 - **Bookmarks** per person: tap the bookmark on a card or a recipe. The bookmark tab next to the tag
   groups narrows the list to yours, with search and filters on top. Bookmarked recipes open offline, and an import offers to

@@ -16,6 +16,9 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
 
 - **Recipes** with structured ingredients in sections, ranges ("2-3 cloves"), markdown steps and
   notes, yield, total and active time, source link and a cover image with a chosen focal point.
+  A recipe without a cover shows up to three initials of its title ("Air-fryer crispy tofu" is
+  ACT) on a card coloured by its course: mains orange, salads green, soups amber, drinks blue and
+  so on. Of two courses, the first in the tag scheme's order picks the colour.
 - **Scaling** by servings or by factor, with per-unit rounding and g/ml promoted to kg/l.
 - **Cooking mode**: bigger text, screen kept awake, tap to tick off steps and ingredients. Steps
   always show the amount of each ingredient they name, at the current scale, right after the word.

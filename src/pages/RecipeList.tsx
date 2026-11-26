@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { coverUrl, focusPosition } from "../../shared/cover";
+import { titleInitials } from "../../shared/coverArt";
 import { searchRecipes } from "../../shared/search";
-import { parseTag, type TagGroup } from "../../shared/tags";
+import { parseTag, primaryCourse, type TagGroup } from "../../shared/tags";
 import { formatMinutes, matchesTimeFilter, TIME_FILTERS } from "../../shared/time";
 import { BookmarkButton, BookmarkIcon } from "../components/BookmarkButton";
 import { AvgStars } from "../components/Stars";
@@ -258,8 +259,8 @@ export function RecipeList({ bookmarks = false }: { bookmarks?: boolean }) {
                   decoding="async"
                 />
               ) : (
-                <span className="thumb placeholder" aria-hidden="true">
-                  {r.title.slice(0, 1).toUpperCase()}
+                <span className="thumb placeholder" data-course={primaryCourse(r.tags)} aria-hidden="true">
+                  {titleInitials(r.title)}
                 </span>
               )}
               <span className="card-body">

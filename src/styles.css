@@ -16,6 +16,29 @@
   --g-status: #57534e;
   --g-todo: #b91c1c;
   --g-duration: #4338ca;
+  /* Placeholder thumbs by the recipe's course: initials (fg) on bg at >= 5.9:1 in both schemes. */
+  --course-main-bg: #fde2d4;
+  --course-main-fg: #9a3412;
+  --course-side-bg: #ccfbf1;
+  --course-side-fg: #115e59;
+  --course-salad-bg: #dcfce7;
+  --course-salad-fg: #166534;
+  --course-soup-bg: #fef3c7;
+  --course-soup-fg: #92400e;
+  --course-sauce-bg: #fee2e2;
+  --course-sauce-fg: #991b1b;
+  --course-drink-bg: #dbeafe;
+  --course-drink-fg: #1e40af;
+  --course-breakfast-bg: #fef9c3;
+  --course-breakfast-fg: #854d0e;
+  --course-basics-bg: #e7e5e4;
+  --course-basics-fg: #44403c;
+  --course-dessert-bg: #fce7f3;
+  --course-dessert-fg: #9d174d;
+  --course-snack-bg: #ede9fe;
+  --course-snack-fg: #5b21b6;
+  --course-baking-bg: #f3e8d8;
+  --course-baking-fg: #78350f;
   --ok: #15803d;
   --warn: #b45309;
   --err: #b91c1c;
@@ -46,6 +69,28 @@
   --g-status: #d6d3d1;
   --g-todo: #fca5a5;
   --g-duration: #a5b4fc;
+  --course-main-bg: #431407;
+  --course-main-fg: #fdba74;
+  --course-side-bg: #042f2e;
+  --course-side-fg: #5eead4;
+  --course-salad-bg: #052e16;
+  --course-salad-fg: #86efac;
+  --course-soup-bg: #451a03;
+  --course-soup-fg: #fcd34d;
+  --course-sauce-bg: #450a0a;
+  --course-sauce-fg: #fca5a5;
+  --course-drink-bg: #172554;
+  --course-drink-fg: #93c5fd;
+  --course-breakfast-bg: #422006;
+  --course-breakfast-fg: #fde047;
+  --course-basics-bg: #44403c;
+  --course-basics-fg: #e7e5e4;
+  --course-dessert-bg: #500724;
+  --course-dessert-fg: #f9a8d4;
+  --course-snack-bg: #2e1065;
+  --course-snack-fg: #c4b5fd;
+  --course-baking-bg: #3a2414;
+  --course-baking-fg: #f5d0a9;
 }
 * {
   box-sizing: border-box;
@@ -556,10 +601,55 @@ button:disabled {
 .thumb.placeholder {
   display: grid;
   place-items: center;
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   font-weight: 700;
-  color: var(--accent);
-  background: var(--accent-soft);
+  letter-spacing: 0.04em;
+  color: var(--ph-fg, var(--accent));
+  background: var(--ph-bg, var(--accent-soft));
+}
+.thumb.placeholder[data-course="main"] {
+  --ph-bg: var(--course-main-bg);
+  --ph-fg: var(--course-main-fg);
+}
+.thumb.placeholder[data-course="side"] {
+  --ph-bg: var(--course-side-bg);
+  --ph-fg: var(--course-side-fg);
+}
+.thumb.placeholder[data-course="salad"] {
+  --ph-bg: var(--course-salad-bg);
+  --ph-fg: var(--course-salad-fg);
+}
+.thumb.placeholder[data-course="soup"] {
+  --ph-bg: var(--course-soup-bg);
+  --ph-fg: var(--course-soup-fg);
+}
+.thumb.placeholder[data-course="sauce"] {
+  --ph-bg: var(--course-sauce-bg);
+  --ph-fg: var(--course-sauce-fg);
+}
+.thumb.placeholder[data-course="drink"] {
+  --ph-bg: var(--course-drink-bg);
+  --ph-fg: var(--course-drink-fg);
+}
+.thumb.placeholder[data-course="breakfast"] {
+  --ph-bg: var(--course-breakfast-bg);
+  --ph-fg: var(--course-breakfast-fg);
+}
+.thumb.placeholder[data-course="basics"] {
+  --ph-bg: var(--course-basics-bg);
+  --ph-fg: var(--course-basics-fg);
+}
+.thumb.placeholder[data-course="dessert"] {
+  --ph-bg: var(--course-dessert-bg);
+  --ph-fg: var(--course-dessert-fg);
+}
+.thumb.placeholder[data-course="snack"] {
+  --ph-bg: var(--course-snack-bg);
+  --ph-fg: var(--course-snack-fg);
+}
+.thumb.placeholder[data-course="baking"] {
+  --ph-bg: var(--course-baking-bg);
+  --ph-fg: var(--course-baking-fg);
 }
 .card-body {
   display: grid;

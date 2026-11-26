@@ -55,6 +55,13 @@ export const fixedTags = (g: TagGroup): string[] => groupValues(g).map((v) => ma
 /** The groups whose tags the content writer chooses. */
 export const CONTENT_GROUPS = TAG_GROUP_NAMES.filter((g) => spec(g).content);
 
+export type Course = (typeof TAG_GROUPS.course.values)[number];
+
+/** The course that colours the cover placeholder and frames a generated cover: of two, the first in TAG_GROUPS order. */
+export function primaryCourse(tags: readonly string[]): Course | undefined {
+  return TAG_GROUPS.course.values.find((v) => tags.includes(makeTag("course", v)));
+}
+
 export type ParsedTag = { group: TagGroup; value: string };
 
 /** Why `tag` is not a valid tag, or null. Messages are written for a model or a person to act on. */

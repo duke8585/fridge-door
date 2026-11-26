@@ -24,8 +24,9 @@ const PARTIAL = new Set(["half", "remaining", "rest", "some", "more", "extra", "
 const AFTER_COMPOUND = new Set(["sauce", "mixture", "dough", "batter", "dressing", "topping", "glaze", "marinade"]);
 const VERB_SUFFIX = new Set(["mix", "top", "rub", "dip", "dust"]);
 
-const tokenize = (s: string) =>
-  [...s.matchAll(/[\p{L}'-]+|\d+(?:[.,/]\d+)?/gu)].map((m) => ({ w: singularize(itemKey(m[0])), at: m.index!, end: m.index! + m[0].length }));
+/** Singular, and a final "y" read as "i", so "chilies" (singular "chily") meets "chili". Both sides go through it. */
+const word = (raw: string): string => singularize(itemKey(raw)).replace(/(?<=..)y$/, "i");
+const tokenize = (s: string) => [...s.matchAll(/[\p{L}'-]+|\d+(?:[.,/]\d+)?/gu)].map((m) => ({ w: word(m[0]), at: m.index!, end: m.index! + m[0].length }));
 const key = (s: string) =>
   tokenize(s)
     .map((t) => t.w)
@@ -83,7 +84,16 @@ function longestAt(d: Dictionary, toks: { w: string }[], i: number): [Entry, num
   return undefined;
 }
 
-const amountKey = (l: Line) => `${l.qty}|${l.qtyMax}|${l.unit}`;
+/** The sections a step names by their title ("for the swirl"), found as section matches, not as any shared word. */
+function sectionsNamed(d: Dictionary, toks: { w: string }[]): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < toks.length; ) {
+    const hit = longestAt(d, toks, i);
+    if (hit && "section" in hit[0]) out.push(hit[0].section);
+    i += hit ? hit[1] : 1;
+  }
+  return out;
+}
 
 /**
  * Spans for every step of one recipe. A mention names the line it belongs to: a section title in the
@@ -96,7 +106,7 @@ export function linkSteps(sections: Section[], steps: string[]): Span[][] {
   const consumed = new Set<Line>();
   return steps.map((step) => {
     const toks = tokenize(step.replace(/^\s*\d+[.)]\s*/, (m) => " ".repeat(m.length)));
-    const named = d.titles.flatMap((t, i) => (toks.some((x) => t.has(x.w)) ? [i] : []));
+    const named = sectionsNamed(d, toks);
     const spans: Span[] = [];
     for (let i = 0; i < toks.length; ) {
       const hit = longestAt(d, toks, i);
@@ -105,6 +115,10 @@ export function linkSteps(sections: Section[], steps: string[]): Span[][] {
         continue;
       }
       const [e, n] = hit;
+      const said = toks
+        .slice(i, i + n)
+        .map((t) => t.w)
+        .join(" ");
       const from = toks[i]!.at;
       const to = toks[i + n - 1]!.end;
       const before = toks.slice(Math.max(0, i - 3), i).map((t) => t.w);
@@ -119,16 +133,20 @@ export function linkSteps(sections: Section[], steps: string[]): Span[][] {
       let cand = e.lines;
       const sectionsHit = new Set(cand.map((l) => l.section));
       if (sectionsHit.size > 1) {
-        if (new Set(cand.map(amountKey)).size > 1) {
-          const byTitle = cand.filter((l) => named.includes(l.section));
-          const titled = new Set(byTitle.map((l) => l.section));
-          cand = titled.size === 1 ? byTitle : cand.filter((l) => l.section >= pointer);
-          if (!cand.length) cand = e.lines;
-          else if (cand !== byTitle) cand = cand.filter((l) => l.section === cand[0]!.section);
-        } else cand = cand.filter((l) => l.section === cand[0]!.section);
+        const byTitle = cand.filter((l) => named.includes(l.section));
+        const titled = new Set(byTitle.map((l) => l.section));
+        if (titled.size === 1) cand = byTitle;
+        else {
+          const ahead = cand.filter((l) => l.section >= pointer);
+          const unused = ahead.filter((l) => !consumed.has(l));
+          cand = unused.length ? unused : ahead;
+        }
+        if (!cand.length) cand = e.lines;
+        else if (cand !== byTitle) cand = cand.filter((l) => l.section === cand[0]!.section);
       }
       if (cand.length > 1 && new Set(cand.map((l) => l.section)).size === 1) {
-        const same = cand.filter((l) => key(l.item) === key(cand[0]!.item));
+        const exact = cand.filter((l) => key(l.item) === said);
+        const same = exact.length ? exact : cand.filter((l) => key(l.item) === key(cand[0]!.item));
         cand = [same.find((l) => !consumed.has(l)) ?? same.at(-1)!];
       }
       if (cand.length === 1) {
@@ -154,21 +172,22 @@ export function namedLines(sections: Section[], spans: readonly Span[]): Set<num
   return out;
 }
 
-/** Units that read as an amount anywhere ("75 g"). The rest ("2 cloves garlic") only before an ingredient word. */
+/** A number with a unit. It is an ingredient amount only when an ingredient name follows ("75 g butter"), not "600 g of the dough" or "a bowl holding 360 ml". */
 const AMOUNT = /(?<![\p{L}\d.,/])\d+(?:[.,]\d+)?(?:\/\d+)?(?:\s*[-–]\s*\d+(?:[.,]\d+)?)?\s*(g|kg|ml|l|tbsp|tsp|cups?|cloves?|pinch(?:es)?|cans?)(?![\p{L}])/giu;
-const ANYWHERE = new Set(["g", "ml", "tbsp", "tsp"]);
 
 /** The ingredient amounts a step states itself ("75 g butter"), which belong in the ingredient list. */
 export function statedAmounts(sections: Section[], step: string): string[] {
   const d = dictionary(sections);
   const out: string[] = [];
   for (const m of step.matchAll(AMOUNT)) {
-    if (ANYWHERE.has(m[1]!.toLowerCase())) {
-      out.push(m[0]);
-      continue;
-    }
     const after = tokenize(step.slice(m.index! + m[0].length)).slice(0, 4);
-    if (after.some((_, i) => longestAt(d, after, i))) out.push(m[0]);
+    if (
+      after.some((_, i) => {
+        const hit = longestAt(d, after, i);
+        return hit !== undefined && "lines" in hit[0];
+      })
+    )
+      out.push(m[0]);
   }
   return out;
 }

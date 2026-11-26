@@ -23,15 +23,49 @@ function read(sections: Section[], step: string): string[] {
 }
 
 describe("linkSteps", () => {
-  it("takes the section the step names, otherwise walks the sections in order", () => {
+  it("takes the section the step names, otherwise the next section's line no step used yet", () => {
     expect(read(cake, "For the swirl, brown the butter.")).toEqual(["swirl -> section Swirl", "butter -> 120g"]);
     expect(read(cake, "Beat the butter and sugar.")).toEqual(["butter -> 75g", "sugar -> 150g"]);
     const steps = ["Beat the butter and sugar.", "Stir the cinnamon into the butter.", "Beat the butter with the cream cheese."];
     expect(linkSteps(cake, steps).map((s) => s.map((x) => (x.kind === "ingredient" ? x.line.qty : x.kind)))).toEqual([
       [75, 150],
       [2, 120],
-      [120, 200],
+      [100, 200],
     ]);
+  });
+
+  it("reads plurals ending in -ies as the -i singular", () => {
+    const chili: Section[] = [{ ingredients: [g("dried red chili", 4, "piece"), g("green chilli", 2, "piece")] }];
+    expect(read(chili, "Fry the chilies, then the chillies.")).toEqual(["chilies -> 4piece", "chillies -> 2piece"]);
+  });
+
+  it("resolves an item with equal amounts in two sections by section title, then step order", () => {
+    const oats: Section[] = [
+      { title: "Oats", ingredients: [g("cinnamon", 1, "tsp"), g("oats", 50)] },
+      { title: "Cinnamon swirl", ingredients: [g("butter", 10), g("cinnamon", 1, "tsp")] },
+    ];
+    const spans = linkSteps(oats, ["Soak the oats with the cinnamon.", "Stir the butter with the cinnamon."]);
+    expect(spans.map((s) => s.flatMap((x) => (x.kind === "ingredient" ? [`${x.line.item}@${x.line.section}`] : [])))).toEqual([
+      ["oats@0", "cinnamon@0"],
+      ["butter@1", "cinnamon@1"],
+    ]);
+  });
+
+  it("does not count an ingredient word as naming a section with that word in its title", () => {
+    const oats: Section[] = [
+      { ingredients: [g("oats", 80), g("cinnamon", 1, "tsp")] },
+      { title: "Cinnamon swirl", ingredients: [g("light butter", 3), g("cinnamon", 2, "tsp")] },
+    ];
+    const spans = linkSteps(oats, ["Mix the oats and cinnamon.", "Stir the butter with the cinnamon."]);
+    expect(spans.map((s) => s.flatMap((x) => (x.kind === "ingredient" ? [x.line.qty] : [])))).toEqual([
+      [80, 1],
+      [3, 2],
+    ]);
+  });
+
+  it("prefers the line whose name is exactly the word, over one that only reduces to it", () => {
+    const soda: Section[] = [{ ingredients: [g("cold water", 800, "ml"), g("honey", 30), g("water", 40, "ml")] }];
+    expect(read(soda, "Warm the water and dissolve the honey in it.")).toEqual(["water -> 40ml", "honey -> 30g"]);
   });
 
   it("does not link a compound noun such as butter mixture", () => {
@@ -72,10 +106,18 @@ describe("linkSteps", () => {
 
 describe("statedAmounts", () => {
   const sections: Section[] = [{ ingredients: [g("butter", 75), g("garlic", 2, "clove"), g("canned tomato", 400)] }];
-  it("finds an amount before an ingredient word, or a g/ml/tbsp/tsp amount anywhere", () => {
+  it("finds an amount only before an ingredient word", () => {
     expect(statedAmounts(sections, "Beat 75 g butter.")).toEqual(["75 g"]);
     expect(statedAmounts(sections, "Add 2 cloves of garlic.")).toEqual(["2 cloves"]);
-    expect(statedAmounts(sections, "Stir in 1 tbsp of it.")).toEqual(["1 tbsp"]);
+  });
+  it("leaves amounts of intermediates, portions and containers alone", () => {
+    const withDough: Section[] = [
+      { title: "Dough", ingredients: [g("flour", 500)] },
+      { title: "Filling", ingredients: [g("cheese", 200)] },
+    ];
+    expect(statedAmounts(withDough, "Roll 600 g of the dough out.")).toEqual([]);
+    expect(statedAmounts(sections, "Pour off the fat, leaving about 2 tbsp in the pan.")).toEqual([]);
+    expect(statedAmounts(sections, "Use a bowl holding at least 360 ml.")).toEqual([]);
   });
   it("leaves temperatures, times and pans alone", () => {
     expect(statedAmounts(sections, "Bake at 180 °C for 25 min in a 20 cm tin, then wait 2 l of steam to go.")).toEqual([]);

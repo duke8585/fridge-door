@@ -428,9 +428,13 @@ export type NewCover = { key: string; focus: CoverFocus | null; ai: boolean };
 export async function setCoverKey(db: D1Database, id: string, expectedKey: string | null, cover: NewCover, now: string): Promise<boolean> {
   const res = await db
     .prepare(
-      "UPDATE recipes SET cover_key = ?, cover_focus_x = ?, cover_focus_y = ?, cover_focus_by = ?, cover_ai = ?, updated_at = ? WHERE id = ? AND cover_key IS ?",
+      // A generated cover is nobody's edit: updated_at moves 1 ms, so the recipe keeps its place in the
+      // Modified sort while offline copies (compared on updated_at) still refetch it.
+      `UPDATE recipes SET cover_key = ?, cover_focus_x = ?, cover_focus_y = ?, cover_focus_by = ?, cover_ai = ?,
+         updated_at = CASE WHEN ? THEN strftime('%Y-%m-%dT%H:%M:%fZ', updated_at, '+0.001 seconds') ELSE ? END
+       WHERE id = ? AND cover_key IS ?`,
     )
-    .bind(cover.key, cover.focus?.x ?? null, cover.focus?.y ?? null, cover.focus ? "import" : null, cover.ai ? 1 : 0, now, id, expectedKey)
+    .bind(cover.key, cover.focus?.x ?? null, cover.focus?.y ?? null, cover.focus ? "import" : null, cover.ai ? 1 : 0, cover.ai ? 1 : 0, now, id, expectedKey)
     .run();
   return res.meta.changes > 0;
 }

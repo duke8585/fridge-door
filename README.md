@@ -21,7 +21,8 @@ The screenshots show the demo data from `seed/seed.sql` (`npm run dev` loads it)
   so on. Of two courses, the first in the tag scheme's order picks the colour.
 - **Generated covers**: a recipe created over MCP or saved from a link without a cover image gets
   one drawn by Workers AI from its title, ingredients and last step, a moment after it is saved.
-  A small "AI" badge marks it on the card and the recipe until someone sets another image.
+  A small "AI" badge marks it on the card and the recipe until someone sets another image. A
+  generated cover does not count as a change: the recipe keeps its place in the Modified sort.
   Recipes made in the editor do not get one. It needs the Workers AI binding (`AI` in `wrangler.jsonc`);
   without it recipes keep the placeholder. Existing recipes can be given one with a backfill
   (docs/DEPLOY.md, "Generated covers").

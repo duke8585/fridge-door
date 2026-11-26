@@ -92,6 +92,13 @@ describe("PUT /api/recipes/:id/cover/generate", () => {
     expect(objects.get(recipe.cover_key!)).toEqual({ bytes: JPEG, contentType: "image/jpeg" });
   });
 
+  it("moves updated_at by 1 ms only, so the recipe keeps its place in the Modified sort", async () => {
+    const id = await createDal();
+    const before = (await detail(id)).updated_at;
+    expect(await (await generate(id)).json()).toEqual({ status: "generated" });
+    expect(Date.parse((await detail(id)).updated_at) - Date.parse(before)).toBe(1);
+  });
+
   it("skips a recipe that has a cover, without calling the model", async () => {
     const id = await createDal();
     await upload(id, PNG);
